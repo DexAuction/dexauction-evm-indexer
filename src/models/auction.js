@@ -54,7 +54,6 @@ const auction = new mongoose.Schema({
   },
   dutchAuctionAttribute: {
     opening_price: Number,
-    // current_price: Number,
     start_datetime: Date,
     start_timestamp: Number,
     round_duration: Number,
@@ -64,4 +63,4 @@ const auction = new mongoose.Schema({
   },
 });
 
-module.exports = mongoose.model("auction", auction);
+module.exports = mongoose.model("auctions", auction);
