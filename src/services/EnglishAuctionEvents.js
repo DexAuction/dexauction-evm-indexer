@@ -6,7 +6,7 @@ const auctionModel = require("../models/auction");
 const lastSeenBlocksModel = require("../models/last_seen_blocks");
 const seenTransactionModel = require("../models/seenTransaction");
 const { ENGLISH_AUCTION_ABI, PROXY_AUCTION_ABI } = require("../abi");
-
+const utils = require("../helper/utils");
 const EnglishAuctionContract = new web3.eth.Contract(
   ENGLISH_AUCTION_ABI,
   config.NETWORK_CONFIG.ENGLISH_AUCTION_ADDRESS
@@ -113,6 +113,7 @@ const EnglishCreateAuctionEventSubscription = async function () {
 
         if (auctionTypeDecode == "english") {
           _createAuction(
+            result2.transactionHash,
             result2,
             auctionID,
             auctionOwner,
@@ -480,7 +481,6 @@ const scrapeEnglishAuctionEventLogs = async function () {
     });
     console.log("allEventLogsProxy English", allEventLogsProxy);
     console.log("allEventLogs", allEventLogs);
-
     for (element of allEventLogs) {
       const seenTx = await seenTransactionModel.findOne({
         transactionHash: element.transactionHash,
@@ -509,6 +509,7 @@ const scrapeEnglishAuctionEventLogs = async function () {
             }
           }
           _createAuction(
+            element.transactionHash,
             element,
             element.returnValues.auctionID,
             element.returnValues.auctionOwner,
@@ -634,6 +635,7 @@ const scrapeEnglishAuctionEventLogs = async function () {
 };
 
 async function _createAuction(
+  txHash,
   EventLog,
   auctionID,
   auctionOwner,
@@ -671,6 +673,7 @@ async function _createAuction(
     state: "APPLIED",
   });
   await seentx.save();
+  await utils.createAsset(txHash,auctionOwner);
 }
 
 module.exports = {

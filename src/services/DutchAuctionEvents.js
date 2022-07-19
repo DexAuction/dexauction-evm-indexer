@@ -4,7 +4,7 @@ const web3 = new Web3(config.NETWORK_CONFIG.WS_NETWORK_URL);
 const auctionModel = require("../models/auction");
 const lastSeenBlocksModel = require("../models/last_seen_blocks");
 const seenTransactionModel = require("../models/seenTransaction");
-
+const utils = require("../helper/utils");
 const { DUTCH_CONTRACT_ABI, PROXY_AUCTION_ABI } = require("../abi");
 const res = require("express/lib/response");
 
@@ -91,6 +91,7 @@ const DutchCreateAuctionEventSubscription = async function () {
           //save in DB
 
           _createAuction(
+            result2.transactionHash,
             result2,
             auctionID,
             auctionOwner,
@@ -385,6 +386,7 @@ const scrapeDutchAuctionEventLogs = async function () {
           }
           if (auctiontype == "dutch") {
             _createAuction(
+              element.transactionHash,
               element,
               element.returnValues.auctionId,
               element.returnValues.auctionOwner,
@@ -478,6 +480,7 @@ const scrapeDutchAuctionEventLogs = async function () {
 };
 
 async function _createAuction(
+  txHash,
   EventLog,
   auctionID,
   auctionOwner,
@@ -512,6 +515,7 @@ async function _createAuction(
     state: "APPLIED",
   });
   await seentx.save();
+  await utils.createAsset(txHash, auctionOwner);
 }
 
 module.exports = {
