@@ -341,18 +341,22 @@ const scrapeDutchAuctionEventLogs = async function () {
 
     const lastSeenBlock = lastSeenBlockRes.blockNumberDutch;
 
-    // Start from block next to the last seen block till the latestBlock
+    // Start from block next to the last seen block till the (latestBlock - CONFIRMATION_COUNT)
     const fromBlock = parseInt(lastSeenBlock) + 1 + "";
-    const latestBlock = (await web3.eth.getBlockNumber()) + "";
+    const latestBlockNumber = await web3.eth.getBlockNumber();
+    let toBlock = 0;
+    if (latestBlockNumber > config.CONFIRMATION_COUNT) {
+      toBlock = latestBlockNumber - config.CONFIRMATION_COUNT + "";
+    }
 
     const allEventLogs = await DutchAuctionContract.getPastEvents("allEvents", {
       fromBlock,
-      toBlock: latestBlock,
+      toBlock: toBlock,
     });
 
     const allEventLogsProxy = await ProxyContract.getPastEvents("allEvents", {
       fromBlock,
-      toBlock: latestBlock,
+      toBlock: toBlock,
     });
     console.log("allEventLogsProxy Dutch", allEventLogsProxy);
     console.log("allEventLogs", allEventLogs);
@@ -468,7 +472,7 @@ const scrapeDutchAuctionEventLogs = async function () {
     }
     const resp = await lastSeenBlocksModel.findOneAndUpdate(
       {},
-      { blockNumberDutch: latestBlock },
+      { blockNumberDutch: toBlock },
       { new: true }
     );
     await resp.save();
