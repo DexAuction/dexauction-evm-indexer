@@ -1,5 +1,6 @@
 const mongoose = require("mongoose");
 
+//manual entry in this table 
 const masterTemplate = new mongoose.Schema({
   tokenContract: {
     type: String,

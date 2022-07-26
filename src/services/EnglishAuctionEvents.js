@@ -487,6 +487,7 @@ const scrapeEnglishAuctionEventLogs = async function () {
     });
     console.log("allEventLogsProxy English", allEventLogsProxy);
     console.log("allEventLogs", allEventLogs);
+    let promises = [];
     for (element of allEventLogs) {
       const seenTx = await seenTransactionModel.findOne({
         transactionHash: element.transactionHash,
@@ -514,18 +515,19 @@ const scrapeEnglishAuctionEventLogs = async function () {
               auctiontype = item.returnValues.auction_type;
             }
           }
-          _createAuction(
-            element.transactionHash,
-            element,
-            element.returnValues.auctionID,
-            element.returnValues.auctionOwner,
-            auctiontype,
-            tokenID,
-            tokenContractAddress,
-            element.returnValues.startTime,
-            element.returnValues.endTime
+          promises.push(
+            _createAuction(
+              element.transactionHash,
+              element,
+              element.returnValues.auctionID,
+              element.returnValues.auctionOwner,
+              auctiontype,
+              tokenID,
+              tokenContractAddress,
+              element.returnValues.startTime,
+              element.returnValues.endTime
+            )
           );
-
           break;
         case "AuctionConfigure":
           let openingPriceDecode = element.returnValues.openingPrice;
@@ -535,98 +537,35 @@ const scrapeEnglishAuctionEventLogs = async function () {
           let buyOutPrice = element.returnValues.buyOutPrice;
           let softcloseduration = element.returnValues.softCloseDuration;
           let auctionId = element.returnValues.auctionID;
-
-          await auctionModel.updateOne(
-            { auctionId: auctionId },
-            {
-              englishAuctionAttribute: {
-                opening_price: openingPriceDecode,
-                min_increment: minIncrementDecode,
-                start_timestamp: startTimestamp * 1000,
-                end_timestamp: endTimestamp * 1000,
-                start_datetime: new Date(startTimestamp * 1000),
-                end_datetime: new Date(endTimestamp * 1000),
-                soft_close_duration: softcloseduration,
-                buyout_price: buyOutPrice,
-                winning_bid: 0,
-              },
-              state: "ONGOING",
-            }
+          promises.push(
+            _configureAuction(
+              element,
+              auctionId,
+              openingPriceDecode,
+              startTimestamp,
+              endTimestamp,
+              minIncrementDecode,
+              softcloseduration,
+              buyOutPrice
+            )
           );
-
-          const seentxConfigure = new seenTransactionModel({
-            transactionHash: element.transactionHash,
-            blockNumber: element.blockNumber,
-            eventLog: element,
-            state: "APPLIED",
-          });
-          await seentxConfigure.save();
           break;
         case "PlaceBid":
           let AuctionId = element.returnValues.auctionID;
           let Bid = element.returnValues.bid;
           let bidder = element.returnValues.winner;
-
-          await auctionModel.updateMany(
-            { auctionId: AuctionId },
-            {
-              $push: {
-                "englishAuctionAttribute.bids": [
-                  {
-                    address: bidder,
-                    bid: Bid,
-                  },
-                ],
-                bidders: bidder,
-              },
-            }
-          );
-          const seentxBid = new seenTransactionModel({
-            transactionHash: element.transactionHash,
-            blockNumber: element.blockNumber,
-            eventLog: element,
-            state: "APPLIED",
-          });
-          await seentxBid.save();
+          promises.push(_placeBid(element, AuctionId, bidder, Bid));
           break;
         case "AuctionComplete":
-          await auctionModel.updateMany(
-            { auctionId: element.returnValues.auctionID },
-            {
-              $set: {
-                "englishAuctionAttribute.winning_bid":
-                  element.returnValues.winningBid,
-              },
-              buyer: element.returnValues.winner,
-              state: "SUCCESSFULLY-COMPLETED",
-            }
-          );
-          const seentxComplete = new seenTransactionModel({
-            transactionHash: element.transactionHash,
-            blockNumber: element.blockNumber,
-            eventLog: element,
-            state: "APPLIED",
-          });
-          await seentxComplete.save();
+          promises.push(_auctionComplete(element));
           break;
         case "AuctionCancel":
-          await auctionModel.updateOne(
-            { auctionId: element.returnValues.auctionID },
-            {
-              state: "CANCELLED",
-            }
-          );
-          const seentxCancel = new seenTransactionModel({
-            transactionHash: element.transactionHash,
-            blockNumber: element.blockNumber,
-            eventLog: element,
-            state: "APPLIED",
-          });
-          await seentxCancel.save();
+          promises.push(_cancelAuction(element));
         default:
           break;
       }
     }
+    await Promise.all(promises);
     const resp = await lastSeenBlocksModel.findOneAndUpdate(
       {},
       { blockNumberEnglish: toBlock },
@@ -679,9 +618,103 @@ async function _createAuction(
     state: "APPLIED",
   });
   await seentx.save();
-  await utils.createAsset(txHash,auctionOwner);
+  await utils.createAsset(txHash, auctionOwner);
+}
+async function _configureAuction(
+  element,
+  auctionId,
+  openingPriceDecode,
+  startTimestamp,
+  endTimestamp,
+  minIncrementDecode,
+  softcloseduration,
+  buyOutPrice
+) {
+  await auctionModel.updateOne(
+    { auctionId: auctionId },
+    {
+      englishAuctionAttribute: {
+        opening_price: openingPriceDecode,
+        min_increment: minIncrementDecode,
+        start_timestamp: startTimestamp * 1000,
+        end_timestamp: endTimestamp * 1000,
+        start_datetime: new Date(startTimestamp * 1000),
+        end_datetime: new Date(endTimestamp * 1000),
+        soft_close_duration: softcloseduration,
+        buyout_price: buyOutPrice,
+        winning_bid: 0,
+      },
+      state: "ONGOING",
+    }
+  );
+  const seentxConfigure = new seenTransactionModel({
+    transactionHash: element.transactionHash,
+    blockNumber: element.blockNumber,
+    eventLog: element,
+    state: "APPLIED",
+  });
+  await seentxConfigure.save();
 }
 
+async function _placeBid(element, auctionId, bidder, Bid) {
+  await auctionModel.updateMany(
+    { auctionId: auctionId },
+    {
+      $push: {
+        "englishAuctionAttribute.bids": [
+          {
+            address: bidder,
+            bid: Bid,
+          },
+        ],
+        bidders: bidder,
+      },
+    }
+  );
+  const seentxBid = new seenTransactionModel({
+    transactionHash: element.transactionHash,
+    blockNumber: element.blockNumber,
+    eventLog: element,
+    state: "APPLIED",
+  });
+  await seentxBid.save();
+}
+
+async function _auctionComplete(element) {
+  await auctionModel.updateMany(
+    { auctionId: element.returnValues.auctionID },
+    {
+      $set: {
+        "englishAuctionAttribute.winning_bid": element.returnValues.winningBid,
+      },
+      buyer: element.returnValues.winner,
+      state: "SUCCESSFULLY-COMPLETED",
+    }
+  );
+  const seentxComplete = new seenTransactionModel({
+    transactionHash: element.transactionHash,
+    blockNumber: element.blockNumber,
+    eventLog: element,
+    state: "APPLIED",
+  });
+  await seentxComplete.save();
+}
+
+async function _cancelAuction(element) {
+  await auctionModel.updateOne(
+    { auctionId: element.returnValues.auctionID },
+    {
+      state: "CANCELLED",
+    }
+  );
+  const seentxCancel = new seenTransactionModel({
+    transactionHash: element.transactionHash,
+    blockNumber: element.blockNumber,
+    eventLog: element,
+    state: "APPLIED",
+  });
+  await seentxCancel.save();
+}
 module.exports = {
   EnglishCreateAuctionEventSubscription,
   EnglishConfigureAuctionEventSubscription,
