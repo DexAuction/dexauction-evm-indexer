@@ -1,4 +1,8 @@
+const dotenv = require("dotenv")
+dotenv.config()
+
 let NETWORK_CONFIG;
+
 const TEST_NETWORK_PARAMS = {
   START_BLOCK_ENGLISH: "0",
   START_BLOCK_DUTCH: "0",
@@ -52,6 +56,7 @@ if (NETWORK === "testnet") {
 
 module.exports = {
   NODE_ENV: process.env.NODE_ENV || "development",
+  CONFIRMATION_COUNT: process.env.CONFIRMATION_COUNT || 10,
   NETWORK_CONFIG,
   LAST_SYNCED_BLOCK: 0,
 };

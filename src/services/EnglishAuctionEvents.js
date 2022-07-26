@@ -573,6 +573,197 @@ const scrapeEnglishAuctionEventLogs = async function () {
   }
 };
 
+// Initialize Scraping English Auction Event Logs
+
+const initScrapeEnglishAuctionEventLogs = async function (lastSeenBlockRes) {
+  try {
+    if (processing) {
+      return;
+    }
+    processing = true;
+    console.log("Scraping marketplace event logs ...");
+
+    //const lastSeenBlockRes = await lastSeenBlocksModel.findOne();
+
+    const lastSeenBlock = lastSeenBlockRes.blockNumberEnglish;
+
+    // Start from block next to the last seen block till the (latestBlock - CONFIRMATION_COUNT)
+    const fromBlock = parseInt(lastSeenBlock) + 1 + "";
+    const latestBlockNumber = await web3.eth.getBlockNumber();
+
+    let toBlock = 0;
+
+    if (latestBlockNumber > config.CONFIRMATION_COUNT) {
+      toBlock = latestBlockNumber - config.CONFIRMATION_COUNT + "";
+    }
+
+    const allEventLogs = await EnglishAuctionContract.getPastEvents(
+      "allEvents",
+      {
+        fromBlock,
+        toBlock: toBlock,
+      }
+    );
+
+    const allEventLogsProxy = await ProxyContract.getPastEvents("allEvents", {
+      fromBlock,
+      toBlock: toBlock,
+    });
+    console.log("allEventLogsProxy English", allEventLogsProxy);
+    console.log("allEventLogs", allEventLogs);
+    for (element of allEventLogs) {
+      const seenTx = await seenTransactionModel.findOne({
+        transactionHash: element.transactionHash,
+      });
+      if (seenTx) {
+        console.log(
+          `transaction already applied with tx hash ${element.transactionHash}`
+        );
+        continue;
+      }
+      switch (element.event) {
+        case "AuctionCreate":
+          let tokenContractAddress;
+          let tokenID;
+          let auctiontype;
+
+          for (item of allEventLogsProxy) {
+            if (
+              item.event == "AuctionCreateProxy" &&
+              item.returnValues.auction_type == "english" &&
+              item.transactionHash == element.transactionHash
+            ) {
+              tokenContractAddress = item.returnValues.tokenContractAddress;
+              tokenID = item.returnValues.tokenId;
+              auctiontype = item.returnValues.auction_type;
+            }
+          }
+          _createAuction(
+            element.transactionHash,
+            element,
+            element.returnValues.auctionID,
+            element.returnValues.auctionOwner,
+            auctiontype,
+            tokenID,
+            tokenContractAddress,
+            element.returnValues.startTime,
+            element.returnValues.endTime
+          );
+
+          break;
+        case "AuctionConfigure":
+          let openingPriceDecode = element.returnValues.openingPrice;
+          let minIncrementDecode = element.returnValues.minIncrement;
+          let startTimestamp = element.returnValues.startTime;
+          let endTimestamp = element.returnValues.endTime;
+          let buyOutPrice = element.returnValues.buyOutPrice;
+          let softcloseduration = element.returnValues.softCloseDuration;
+          let auctionId = element.returnValues.auctionID;
+
+          await auctionModel.updateOne(
+            { auctionId: auctionId },
+            {
+              englishAuctionAttribute: {
+                opening_price: openingPriceDecode,
+                min_increment: minIncrementDecode,
+                start_timestamp: startTimestamp * 1000,
+                end_timestamp: endTimestamp * 1000,
+                start_datetime: new Date(startTimestamp * 1000),
+                end_datetime: new Date(endTimestamp * 1000),
+                soft_close_duration: softcloseduration,
+                buyout_price: buyOutPrice,
+                winning_bid: 0,
+              },
+              state: "ONGOING",
+            }
+          );
+
+          const seentxConfigure = new seenTransactionModel({
+            transactionHash: element.transactionHash,
+            blockNumber: element.blockNumber,
+            eventLog: element,
+            state: "APPLIED",
+          });
+          await seentxConfigure.save();
+          break;
+        case "PlaceBid":
+          let AuctionId = element.returnValues.auctionID;
+          let Bid = element.returnValues.bid;
+          let bidder = element.returnValues.winner;
+
+          await auctionModel.updateMany(
+            { auctionId: AuctionId },
+            {
+              $push: {
+                "englishAuctionAttribute.bids": [
+                  {
+                    address: bidder,
+                    bid: Bid,
+                  },
+                ],
+                bidders: bidder,
+              },
+            }
+          );
+          const seentxBid = new seenTransactionModel({
+            transactionHash: element.transactionHash,
+            blockNumber: element.blockNumber,
+            eventLog: element,
+            state: "APPLIED",
+          });
+          await seentxBid.save();
+          break;
+        case "AuctionComplete":
+          await auctionModel.updateMany(
+            { auctionId: element.returnValues.auctionID },
+            {
+              $set: {
+                "englishAuctionAttribute.winning_bid":
+                  element.returnValues.winningBid,
+              },
+              buyer: element.returnValues.winner,
+              state: "SUCCESSFULLY-COMPLETED",
+            }
+          );
+          const seentxComplete = new seenTransactionModel({
+            transactionHash: element.transactionHash,
+            blockNumber: element.blockNumber,
+            eventLog: element,
+            state: "APPLIED",
+          });
+          await seentxComplete.save();
+          break;
+        case "AuctionCancel":
+          await auctionModel.updateOne(
+            { auctionId: element.returnValues.auctionID },
+            {
+              state: "CANCELLED",
+            }
+          );
+          const seentxCancel = new seenTransactionModel({
+            transactionHash: element.transactionHash,
+            blockNumber: element.blockNumber,
+            eventLog: element,
+            state: "APPLIED",
+          });
+          await seentxCancel.save();
+        default:
+          break;
+      }
+    }
+    const resp = await lastSeenBlocksModel.findOneAndUpdate(
+      {},
+      { blockNumberEnglish: toBlock },
+      { new: true }
+    );
+    await resp.save();
+  } catch (error) {
+    console.error(error);
+  } finally {
+    processing = false;
+  }
+};
+
 async function _createAuction(
   txHash,
   EventLog,
@@ -717,4 +908,5 @@ module.exports = {
   EnglishAuctionEndEventSubscription,
   EnglishAuctionCompleteEventSubscription,
   scrapeEnglishAuctionEventLogs,
+  initScrapeEnglishAuctionEventLogs
 };
