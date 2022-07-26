@@ -356,7 +356,7 @@ const scrapeDutchAuctionEventLogs = async function () {
     });
     console.log("allEventLogsProxy Dutch", allEventLogsProxy);
     console.log("allEventLogs", allEventLogs);
-
+    let promises = [];
     for (element of allEventLogs) {
       const seenTx = await seenTransactionModel.findOne({
         transactionHash: element.transactionHash,
@@ -385,15 +385,17 @@ const scrapeDutchAuctionEventLogs = async function () {
             }
           }
           if (auctiontype == "dutch") {
-            _createAuction(
-              element.transactionHash,
-              element,
-              element.returnValues.auctionId,
-              element.returnValues.auctionOwner,
-              auctiontype,
-              tokenID,
-              tokenContractAddress,
-              element.returnValues.startTime
+            promises.push(
+              _createAuction(
+                element.transactionHash,
+                element,
+                element.returnValues.auctionId,
+                element.returnValues.auctionOwner,
+                auctiontype,
+                tokenID,
+                tokenContractAddress,
+                element.returnValues.startTime
+              )
             );
             break;
           }
@@ -404,68 +406,34 @@ const scrapeDutchAuctionEventLogs = async function () {
           let dropAmount = element.returnValues.dropAmount;
           let roundDuration = element.returnValues.roundDuration;
           let auctionID = element.returnValues.auctionId;
-
-          await auctionModel.updateOne(
-            { auctionId: auctionID },
-            {
-              dutchAuctionAttribute: {
-                opening_price: openingPriceDecode,
-                round_duration: roundDuration,
-                start_timestamp: startTimestamp * 1000,
-                start_datetime: new Date(startTimestamp * 1000),
-                reserve_price: reservePriceDecode,
-                drop_amount: dropAmount,
-                winning_bid: 0,
-              },
-              state: "ONGOING",
-            }
+          promises.push(
+            _configureAuction(
+              element,
+              auctionID,
+              openingPriceDecode,
+              roundDuration,
+              startTimestamp,
+              reservePriceDecode,
+              dropAmount
+            )
           );
-          const seentxConfigure = new seenTransactionModel({
-            transactionHash: element.transactionHash,
-            blockNumber: element.blockNumber,
-            eventLog: element,
-            state: "APPLIED",
-          });
-          await seentxConfigure.save();
           break;
         case "PriceAccept":
           let AuctionId = element.returnValues.auctionId;
           let winBid = element.returnValues.winningBid;
           let auctionWinner = element.returnValues.winner;
-          await auctionModel.updateMany(
-            { auctionId: AuctionId },
-            {
-              $set: { "dutchAuctionAttribute.winning_bid": winBid },
-              buyer: auctionWinner,
-              state: "SUCCESSFULLY-COMPLETED",
-            }
+          promises.push(
+            _acceptPrice(element, AuctionId, winBid, auctionWinner)
           );
-          const seentxPriceAccept = new seenTransactionModel({
-            transactionHash: element.transactionHash,
-            blockNumber: element.blockNumber,
-            eventLog: element,
-            state: "APPLIED",
-          });
-          await seentxPriceAccept.save();
+
           break;
         case "AuctionCancel":
-          await auctionModel.updateOne(
-            { auctionId: element.returnValues.auctionId },
-            {
-              state: "CANCELLED",
-            }
-          );
-          const seentxCancel = new seenTransactionModel({
-            transactionHash: element.transactionHash,
-            blockNumber: element.blockNumber,
-            eventLog: element,
-            state: "APPLIED",
-          });
-          await seentxCancel.save();
+          promises.push(_cancelAuction(element));
         default:
           break;
       }
     }
+    await Promise.all(promises);
     const resp = await lastSeenBlocksModel.findOneAndUpdate(
       {},
       { blockNumberDutch: latestBlock },
@@ -518,6 +486,71 @@ async function _createAuction(
   await utils.createAsset(txHash, auctionOwner);
 }
 
+async function _configureAuction(
+  element,
+  auctionID,
+  openingPriceDecode,
+  roundDuration,
+  startTimestamp,
+  reservePriceDecode,
+  dropAmount
+) {
+  await auctionModel.updateOne(
+    { auctionId: auctionID },
+    {
+      dutchAuctionAttribute: {
+        opening_price: openingPriceDecode,
+        round_duration: roundDuration,
+        start_timestamp: startTimestamp * 1000,
+        start_datetime: new Date(startTimestamp * 1000),
+        reserve_price: reservePriceDecode,
+        drop_amount: dropAmount,
+        winning_bid: 0,
+      },
+      state: "ONGOING",
+    }
+  );
+  const seentxConfigure = new seenTransactionModel({
+    transactionHash: element.transactionHash,
+    blockNumber: element.blockNumber,
+    eventLog: element,
+    state: "APPLIED",
+  });
+  await seentxConfigure.save();
+}
+async function _acceptPrice(element, AuctionId, winBid, auctionWinner) {
+  await auctionModel.updateMany(
+    { auctionId: AuctionId },
+    {
+      $set: { "dutchAuctionAttribute.winning_bid": winBid },
+      buyer: auctionWinner,
+      state: "SUCCESSFULLY-COMPLETED",
+    }
+  );
+  const seentxPriceAccept = new seenTransactionModel({
+    transactionHash: element.transactionHash,
+    blockNumber: element.blockNumber,
+    eventLog: element,
+    state: "APPLIED",
+  });
+  await seentxPriceAccept.save();
+}
+
+async function _cancelAuction(element) {
+  await auctionModel.updateOne(
+    { auctionId: element.returnValues.auctionId },
+    {
+      state: "CANCELLED",
+    }
+  );
+  const seentxCancel = new seenTransactionModel({
+    transactionHash: element.transactionHash,
+    blockNumber: element.blockNumber,
+    eventLog: element,
+    state: "APPLIED",
+  });
+  await seentxCancel.save();
+}
 module.exports = {
   DutchCreateAuctionEventSubscription,
   DutchConfigureAuctionEventSubscription,
