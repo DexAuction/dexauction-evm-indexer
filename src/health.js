@@ -1,15 +1,8 @@
-// const dotenv = require("dotenv")
-// dotenv.config()
-
 const config = require("./config");
 
 const getHealth = async function () {
-
- // console.log(config.NETWORK_CONFIG.HTTP_NETWORK_URL);
-
   const Web3 = require("web3");
   const web3 = new Web3(config.NETWORK_CONFIG.HTTP_NETWORK_URL);
-  //const web3 = new Web3(new Web3.providers.HttpProvider(config.NETWORK_CONFIG.HTTP_NETWORK_URL));
   const lastestBlock = await web3.eth.getBlock("latest");
   console.log("lastestblock ", lastestBlock);
 

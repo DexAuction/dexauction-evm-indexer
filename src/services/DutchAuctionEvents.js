@@ -341,18 +341,24 @@ const scrapeDutchAuctionEventLogs = async function () {
 
     const lastSeenBlock = lastSeenBlockRes.blockNumberDutch;
 
-    // Start from block next to the last seen block till the latestBlock
+    // Start from block next to the last seen block till the (latestBlock - CONFIRMATION_COUNT)
     const fromBlock = parseInt(lastSeenBlock) + 1 + "";
-    const latestBlock = (await web3.eth.getBlockNumber()) + "";
+    const latestBlockNumber = await web3.eth.getBlockNumber();
+    let toBlock;
+    if (latestBlockNumber > config.CONFIRMATION_COUNT) {
+      toBlock = latestBlockNumber - config.CONFIRMATION_COUNT + "";
+    } else {
+      toBlock = fromBlock;
+    }
 
     const allEventLogs = await DutchAuctionContract.getPastEvents("allEvents", {
       fromBlock,
-      toBlock: latestBlock,
+      toBlock,
     });
 
     const allEventLogsProxy = await ProxyContract.getPastEvents("allEvents", {
       fromBlock,
-      toBlock: latestBlock,
+      toBlock,
     });
     console.log("allEventLogsProxy Dutch", allEventLogsProxy);
     console.log("allEventLogs", allEventLogs);
@@ -436,7 +442,7 @@ const scrapeDutchAuctionEventLogs = async function () {
     await Promise.all(promises);
     const resp = await lastSeenBlocksModel.findOneAndUpdate(
       {},
-      { blockNumberDutch: latestBlock },
+      { blockNumberDutch: toBlock },
       { new: true }
     );
     await resp.save();
@@ -448,7 +454,6 @@ const scrapeDutchAuctionEventLogs = async function () {
 };
 
 // Initialize scrapeDutchAuctionEventLogs
-
 const initScrapeDutchAuctionEventLogs = async function (lastSeenBlockRes) {
   try {
     if (processing) {
@@ -456,26 +461,27 @@ const initScrapeDutchAuctionEventLogs = async function (lastSeenBlockRes) {
     }
     processing = true;
     console.log("Scraping dutch auction event logs ...");
-    //const lastSeenBlockRes = await lastSeenBlocksModel.findOne();
 
     const lastSeenBlock = lastSeenBlockRes.blockNumberDutch;
 
     // Start from block next to the last seen block till the (latestBlock - CONFIRMATION_COUNT)
     const fromBlock = parseInt(lastSeenBlock) + 1 + "";
     const latestBlockNumber = await web3.eth.getBlockNumber();
-    let toBlock = 0;
+    let toBlock;
     if (latestBlockNumber > config.CONFIRMATION_COUNT) {
       toBlock = latestBlockNumber - config.CONFIRMATION_COUNT + "";
+    } else {
+      toBlock = fromBlock;
     }
 
     const allEventLogs = await DutchAuctionContract.getPastEvents("allEvents", {
       fromBlock,
-      toBlock: toBlock,
+      toBlock,
     });
 
     const allEventLogsProxy = await ProxyContract.getPastEvents("allEvents", {
       fromBlock,
-      toBlock: toBlock,
+      toBlock,
     });
 
     console.log("allEventLogsProxy Dutch", allEventLogsProxy);

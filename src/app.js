@@ -1,6 +1,3 @@
-const dotenv = require("dotenv")
-dotenv.config()
-
 const express = require("express");
 const bodyParser = require("body-parser");
 const mongo = require("./db");
@@ -24,23 +21,6 @@ async function seedDbEntries() {
     await lastSeenBlock.save();
   }
 }
-
-// initialize function to initialize the block indexer
-
-  async function initialize() {
-  const lastSeenBlockInstance = await last_seen_blocks.findOne();
-  if (!lastSeenBlockInstance) {
-      lastSeenBlockInstance = new last_seen_blocks({
-      blockNumberEnglish: NETWORK_CONFIG.START_BLOCK_ENGLISH,
-      blockNumberDutch: NETWORK_CONFIG.START_BLOCK_DUTCH,
-    });
-    await lastSeenBlockInstance.save();
-  }
-
-  await initScrapeEnglishAuctionEventLogs(lastSeenBlockInstance);
-  await initScrapeDutchAuctionEventLogs(lastSeenBlockInstance);
-}
-
 // set port, listen for requests, start cron
 const PORT = process.env.PORT || 3000;
 const { getHealth } = require("./health");
@@ -64,6 +44,38 @@ const {
   initScrapeDutchAuctionEventLogs
 } = require("./services/DutchAuctionEvents");
 
+// initialize function to initialize the block indexer
+  async function initialize() {
+  const lastSeenBlockInstance = await last_seen_blocks.findOne();
+  if (!lastSeenBlockInstance) {
+      lastSeenBlockInstance = new last_seen_blocks({
+      blockNumberEnglish: NETWORK_CONFIG.START_BLOCK_ENGLISH,
+      blockNumberDutch: NETWORK_CONFIG.START_BLOCK_DUTCH,
+    });
+    await lastSeenBlockInstance.save();
+  }
+  await initScrapeEnglishAuctionEventLogs(lastSeenBlockInstance);
+  await initScrapeDutchAuctionEventLogs(lastSeenBlockInstance);
+}
+
+async function eventSubscriptions() {
+  await EnglishCreateAuctionEventSubscription();
+  await EnglishConfigureAuctionEventSubscription();
+  await EnglishPlaceBidEventSubscription();
+  await EnglishAuctionCancelEventSubscription();
+  await EnglishAuctionEndEventSubscription();
+  await EnglishAuctionCompleteEventSubscription();
+  await DutchCreateAuctionEventSubscription();
+  await DutchConfigureAuctionEventSubscription();
+  await DutchAcceptPriceEventSubscription();
+  await DutchAuctionCancelEventSubscription();
+}
+
+async function eventScraping() {
+  await scrapeEnglishAuctionEventLogs();
+  await scrapeDutchAuctionEventLogs();
+}
+
 app.listen(PORT, async () => {
   try {
     await mongo.connect();
@@ -78,18 +90,10 @@ app.listen(PORT, async () => {
     const healthData = await getHealth();
     console.log("healthData", healthData);
 
-    await EnglishCreateAuctionEventSubscription();
-    await EnglishConfigureAuctionEventSubscription();
-    await EnglishPlaceBidEventSubscription();
-    await EnglishAuctionCancelEventSubscription();
-    await EnglishAuctionEndEventSubscription();
-    await EnglishAuctionCompleteEventSubscription();
-    await DutchCreateAuctionEventSubscription();
-    await DutchConfigureAuctionEventSubscription();
-    await DutchAcceptPriceEventSubscription();
-    await DutchAuctionCancelEventSubscription();
-    await scrapeEnglishAuctionEventLogs();
-    await scrapeDutchAuctionEventLogs();
+    if (CONFIRMATION_COUNT==0) {
+      await eventSubscriptions();
+    }
+    await eventScraping();
   } catch (error) {
     console.log("An error occurred during startup: ", error);
     await mongo.close();

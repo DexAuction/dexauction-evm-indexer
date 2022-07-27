@@ -1,8 +1,4 @@
-const dotenv = require("dotenv")
-dotenv.config()
-
 let NETWORK_CONFIG;
-
 const TEST_NETWORK_PARAMS = {
   START_BLOCK_ENGLISH: "0",
   START_BLOCK_DUTCH: "0",
