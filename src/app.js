@@ -60,6 +60,15 @@ async function eventScraping() {
   await scrapeDutchAuctionEventLogs();
 }
 
+const CronJob = require('cron').CronJob;
+const scrapingJob = new CronJob(
+	'1 * * * * *',
+	async () => {
+		console.log("\nStarting event scraping ...");
+    await eventScraping();
+	}
+);
+
 app.listen(PORT, async () => {
   try {
     await mongo.connect();
@@ -83,3 +92,5 @@ app.listen(PORT, async () => {
     process.exit(1);
   }
 });
+
+scrapingJob.start();
