@@ -6,7 +6,7 @@ const assetModel = require("../models/asset");
 const masterModel = require("../models/NFTContractTemplate");
 const {
   DECENTRALAND_NFT_CONTRACT_ABI,
-  ENS_NFT_CONTRACT_ABI,
+  ENS_NFT_CONTRACT_ABI
 } = require("../abi");
 
 const DecentralandAssetContract = new web3.eth.Contract(
@@ -37,7 +37,7 @@ async function createAsset(txhash, assetOwner) {
           to.toLowerCase() == config.NETWORK_CONFIG.PROXY_ADDRESS.toLowerCase()
         ) {
           const getTemplate = await masterModel.findOne({
-            tokenContract: item.address,
+            tokenContract: item.address
           });
 
           let getTokenURI;
@@ -61,7 +61,7 @@ async function createAsset(txhash, assetOwner) {
             const resp = await axios.get(getTokenURI);
 
             const assetEntry = {
-              assetContractAddress : item.address,
+              assetContractAddress: item.address,
               assetTokenId: assetTokenId,
               mintedAt: "",
               mintedBy: "",
@@ -75,7 +75,7 @@ async function createAsset(txhash, assetOwner) {
               owner: assetOwner,
               background_image: null,
               background_color: null,
-              NFTCollection: getTemplate.name,
+              NFTCollection: getTemplate.name
             };
 
             for (let [key, value] of Object.entries(getTemplate.template)) {
@@ -96,5 +96,5 @@ async function createAsset(txhash, assetOwner) {
 }
 
 module.exports = {
-  createAsset,
+  createAsset
 };

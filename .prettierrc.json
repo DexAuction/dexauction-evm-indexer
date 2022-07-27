@@ -1,0 +1,21 @@
+{
+  "prettier": {
+    "tabWidth": 2,
+    "singleQuote": true,
+    "trailingComma": "all",
+    "semi": true,
+    "printWidth": 80,
+    "useTabs": false,
+    "quoteProps": "as-needed",
+    "bracketSpacing": true,
+    "bracketSameLine": true,
+    "arrowParens": "always",
+    "cursorOffset": -1,
+    "editorconfig": false,
+    "embeddedLanguageFormatting": "auto",
+    "endOfLine": "lf",
+    "singleAttributePerLine": false,
+    "vueIndentScriptAndStyle": false,
+    "insertPragma": false
+  }
+}

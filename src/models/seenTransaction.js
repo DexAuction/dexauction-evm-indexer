@@ -3,20 +3,20 @@ const mongoose = require("mongoose");
 const seen_transaction = new mongoose.Schema({
   transactionHash: {
     type: String,
-    required: true,
+    required: true
   },
   blockNumber: {
     type: Number,
-    required: true,
+    required: true
   },
   eventLog: {
     type: Object,
-    required: true,
+    required: true
   },
   state: {
     type: String,
-    enum: ["APPLIED"],
-  },
+    enum: ["APPLIED"]
+  }
 });
 seen_transaction.set("timestamps", true);
 

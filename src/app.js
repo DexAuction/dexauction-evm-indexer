@@ -16,7 +16,7 @@ async function seedDbEntries() {
   if (!lastSeenBlockInstance) {
     const lastSeenBlock = new last_seen_blocks({
       blockNumberEnglish: NETWORK_CONFIG.START_BLOCK_ENGLISH,
-      blockNumberDutch: NETWORK_CONFIG.START_BLOCK_DUTCH,
+      blockNumberDutch: NETWORK_CONFIG.START_BLOCK_DUTCH
     });
     await lastSeenBlock.save();
   }
@@ -31,7 +31,7 @@ const {
   EnglishAuctionCancelEventSubscription,
   EnglishAuctionEndEventSubscription,
   EnglishAuctionCompleteEventSubscription,
-  scrapeEnglishAuctionEventLogs,
+  scrapeEnglishAuctionEventLogs
 } = require("./services/EnglishAuctionEvents");
 
 const {
@@ -39,7 +39,7 @@ const {
   DutchConfigureAuctionEventSubscription,
   DutchAcceptPriceEventSubscription,
   DutchAuctionCancelEventSubscription,
-  scrapeDutchAuctionEventLogs,
+  scrapeDutchAuctionEventLogs
 } = require("./services/DutchAuctionEvents");
 
 async function eventSubscriptions() {
@@ -73,7 +73,7 @@ app.listen(PORT, async () => {
     const healthData = await getHealth();
     console.log("healthData", healthData);
 
-    if (CONFIRMATION_COUNT==0) {
+    if (CONFIRMATION_COUNT == 0) {
       await eventSubscriptions();
     }
     await eventScraping();

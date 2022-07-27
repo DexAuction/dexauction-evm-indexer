@@ -3,12 +3,12 @@ const mongoose = require("mongoose");
 const last_seen_blocks = new mongoose.Schema({
   blockNumberEnglish: {
     type: String,
-    required: true,
+    required: true
   },
   blockNumberDutch: {
     type: String,
-    required: true,
-  },
+    required: true
+  }
 });
 last_seen_blocks.set("timestamps", true);
 

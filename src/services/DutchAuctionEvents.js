@@ -17,7 +17,7 @@ const ProxyContract = new web3.eth.Contract(
   config.NETWORK_CONFIG.PROXY_ADDRESS
 );
 
-const DutchCreateAuctionEventSubscription = async function () {
+const DutchCreateAuctionEventSubscription = async function() {
   await updateLastSyncedBlock();
 
   let auctionID;
@@ -26,10 +26,10 @@ const DutchCreateAuctionEventSubscription = async function () {
   const subscribingAuctionCreate = await web3.eth.subscribe(
     "logs",
     {
-      address: config.NETWORK_CONFIG.DUTCH_CONTRACT_ADDRESS.toLowerCase(),
+      address: config.NETWORK_CONFIG.DUTCH_CONTRACT_ADDRESS.toLowerCase()
     },
 
-    async function (err, result) {
+    async function(err, result) {
       if (
         !err &&
         result.address.toLowerCase() ===
@@ -53,10 +53,10 @@ const DutchCreateAuctionEventSubscription = async function () {
   const subscribingAuctionCreateProxy = await web3.eth.subscribe(
     "logs",
     {
-      address: config.NETWORK_CONFIG.PROXY_ADDRESS.toLowerCase(),
+      address: config.NETWORK_CONFIG.PROXY_ADDRESS.toLowerCase()
     },
 
-    async function (err, result2) {
+    async function(err, result2) {
       if (
         !err &&
         result2.address.toLowerCase() ===
@@ -79,7 +79,7 @@ const DutchCreateAuctionEventSubscription = async function () {
         );
         if (auctionTypeDecode == "dutch") {
           const seenTx = await seenTransactionModel.findOne({
-            transactionHash: result2.transactionHash,
+            transactionHash: result2.transactionHash
           });
           if (seenTx) {
             console.log(
@@ -116,7 +116,7 @@ const DutchCreateAuctionEventSubscription = async function () {
   // heartbeat();
 };
 
-const DutchConfigureAuctionEventSubscription = async function () {
+const DutchConfigureAuctionEventSubscription = async function() {
   await updateLastSyncedBlock();
 
   let openingPriceDecode;
@@ -130,9 +130,9 @@ const DutchConfigureAuctionEventSubscription = async function () {
   await web3.eth.subscribe(
     "logs",
     {
-      address: config.NETWORK_CONFIG.DUTCH_CONTRACT_ADDRESS.toLowerCase(),
+      address: config.NETWORK_CONFIG.DUTCH_CONTRACT_ADDRESS.toLowerCase()
     },
-    async function (err, result) {
+    async function(err, result) {
       if (
         !err &&
         result.address.toLowerCase() ===
@@ -142,7 +142,7 @@ const DutchConfigureAuctionEventSubscription = async function () {
       ) {
         console.log("result Configure ", result);
         const seenTx = await seenTransactionModel.findOne({
-          transactionHash: result.transactionHash,
+          transactionHash: result.transactionHash
         });
         if (seenTx) {
           console.log(
@@ -194,16 +194,16 @@ const DutchConfigureAuctionEventSubscription = async function () {
               start_datetime: new Date(startTimeDecode * 1000),
               reserve_price: reservePriceDecode,
               drop_amount: dropAmountDecode,
-              winningBid: 0,
+              winningBid: 0
             },
-            state: "ONGOING",
+            state: "ONGOING"
           }
         );
         const seentx = new seenTransactionModel({
           transactionHash: result.transactionHash,
           blockNumber: result.blockNumber,
           eventLog: result,
-          state: "APPLIED",
+          state: "APPLIED"
         });
         await seentx.save();
       }
@@ -211,14 +211,14 @@ const DutchConfigureAuctionEventSubscription = async function () {
   );
 };
 
-const DutchAcceptPriceEventSubscription = async function () {
+const DutchAcceptPriceEventSubscription = async function() {
   await updateLastSyncedBlock();
   await web3.eth.subscribe(
     "logs",
     {
-      address: config.NETWORK_CONFIG.DUTCH_CONTRACT_ADDRESS.toLowerCase(),
+      address: config.NETWORK_CONFIG.DUTCH_CONTRACT_ADDRESS.toLowerCase()
     },
-    async function (err, result) {
+    async function(err, result) {
       if (
         !err &&
         result.address.toLowerCase() ===
@@ -228,7 +228,7 @@ const DutchAcceptPriceEventSubscription = async function () {
       ) {
         console.log("result Bid ", result);
         const seenTx = await seenTransactionModel.findOne({
-          transactionHash: result.transactionHash,
+          transactionHash: result.transactionHash
         });
         if (seenTx) {
           console.log(
@@ -253,14 +253,14 @@ const DutchAcceptPriceEventSubscription = async function () {
           {
             $set: { "dutchAuctionAttribute.winning_bid": winningBid },
             buyer: auctionWinner,
-            state: "SUCCESSFULLY-COMPLETED",
+            state: "SUCCESSFULLY-COMPLETED"
           }
         );
         const seentx = new seenTransactionModel({
           transactionHash: result.transactionHash,
           blockNumber: result.blockNumber,
           eventLog: result,
-          state: "APPLIED",
+          state: "APPLIED"
         });
         await seentx.save();
         console.log("syncedBlock bid", config.LAST_SYNCED_BLOCK);
@@ -269,14 +269,14 @@ const DutchAcceptPriceEventSubscription = async function () {
   );
 };
 
-const DutchAuctionCancelEventSubscription = async function () {
+const DutchAuctionCancelEventSubscription = async function() {
   await updateLastSyncedBlock();
   await web3.eth.subscribe(
     "logs",
     {
-      address: config.NETWORK_CONFIG.DUTCH_CONTRACT_ADDRESS.toLowerCase(),
+      address: config.NETWORK_CONFIG.DUTCH_CONTRACT_ADDRESS.toLowerCase()
     },
-    async function (err, result) {
+    async function(err, result) {
       if (
         !err &&
         result.address.toLowerCase() ===
@@ -286,7 +286,7 @@ const DutchAuctionCancelEventSubscription = async function () {
       ) {
         console.log("result cancel auction ", result);
         const seenTx = await seenTransactionModel.findOne({
-          transactionHash: result.transactionHash,
+          transactionHash: result.transactionHash
         });
         if (seenTx) {
           console.log(
@@ -303,14 +303,14 @@ const DutchAuctionCancelEventSubscription = async function () {
           { auctionId: auctionID },
           {
             $set: { "dutchAuctionAttribute.winning_bid": 0 },
-            state: "CANCELLED",
+            state: "CANCELLED"
           }
         );
         const seentx = new seenTransactionModel({
           transactionHash: result.transactionHash,
           blockNumber: result.blockNumber,
           eventLog: result,
-          state: "APPLIED",
+          state: "APPLIED"
         });
         await seentx.save();
         console.log("syncedBlock Cancel 1", config.LAST_SYNCED_BLOCK);
@@ -320,7 +320,7 @@ const DutchAuctionCancelEventSubscription = async function () {
 };
 
 async function updateLastSyncedBlock() {
-  await web3.eth.subscribe("newBlockHeaders", async function (err, result) {
+  await web3.eth.subscribe("newBlockHeaders", async function(err, result) {
     if (!err) {
       config.LAST_SYNCED_BLOCK = result.number;
     }
@@ -330,7 +330,7 @@ async function updateLastSyncedBlock() {
 
 let processing = false;
 
-const scrapeDutchAuctionEventLogs = async function () {
+const scrapeDutchAuctionEventLogs = async function() {
   try {
     if (processing) {
       return;
@@ -353,19 +353,19 @@ const scrapeDutchAuctionEventLogs = async function () {
 
     const allEventLogs = await DutchAuctionContract.getPastEvents("allEvents", {
       fromBlock,
-      toBlock,
+      toBlock
     });
 
     const allEventLogsProxy = await ProxyContract.getPastEvents("allEvents", {
       fromBlock,
-      toBlock,
+      toBlock
     });
     console.log("allEventLogsProxy Dutch", allEventLogsProxy);
     console.log("allEventLogs", allEventLogs);
     let promises = [];
     for (element of allEventLogs) {
       const seenTx = await seenTransactionModel.findOne({
-        transactionHash: element.transactionHash,
+        transactionHash: element.transactionHash
       });
       if (seenTx) {
         console.log(
@@ -477,8 +477,8 @@ async function _createAuction(
       start_datetime: new Date(startTime * 1000),
       reserve_price: 0,
       drop_amount: 0,
-      winning_bid: 0,
-    },
+      winning_bid: 0
+    }
   });
   await dbAuction.save();
 
@@ -486,7 +486,7 @@ async function _createAuction(
     transactionHash: EventLog.transactionHash,
     blockNumber: EventLog.blockNumber,
     eventLog: EventLog,
-    state: "APPLIED",
+    state: "APPLIED"
   });
   await seentx.save();
   await utils.createAsset(txHash, auctionOwner);
@@ -511,16 +511,16 @@ async function _configureAuction(
         start_datetime: new Date(startTimestamp * 1000),
         reserve_price: reservePriceDecode,
         drop_amount: dropAmount,
-        winning_bid: 0,
+        winning_bid: 0
       },
-      state: "ONGOING",
+      state: "ONGOING"
     }
   );
   const seentxConfigure = new seenTransactionModel({
     transactionHash: element.transactionHash,
     blockNumber: element.blockNumber,
     eventLog: element,
-    state: "APPLIED",
+    state: "APPLIED"
   });
   await seentxConfigure.save();
 }
@@ -530,14 +530,14 @@ async function _acceptPrice(element, AuctionId, winBid, auctionWinner) {
     {
       $set: { "dutchAuctionAttribute.winning_bid": winBid },
       buyer: auctionWinner,
-      state: "SUCCESSFULLY-COMPLETED",
+      state: "SUCCESSFULLY-COMPLETED"
     }
   );
   const seentxPriceAccept = new seenTransactionModel({
     transactionHash: element.transactionHash,
     blockNumber: element.blockNumber,
     eventLog: element,
-    state: "APPLIED",
+    state: "APPLIED"
   });
   await seentxPriceAccept.save();
 }
@@ -546,14 +546,14 @@ async function _cancelAuction(element) {
   await auctionModel.updateOne(
     { auctionId: element.returnValues.auctionId },
     {
-      state: "CANCELLED",
+      state: "CANCELLED"
     }
   );
   const seentxCancel = new seenTransactionModel({
     transactionHash: element.transactionHash,
     blockNumber: element.blockNumber,
     eventLog: element,
-    state: "APPLIED",
+    state: "APPLIED"
   });
   await seentxCancel.save();
 }
@@ -562,5 +562,5 @@ module.exports = {
   DutchConfigureAuctionEventSubscription,
   DutchAcceptPriceEventSubscription,
   DutchAuctionCancelEventSubscription,
-  scrapeDutchAuctionEventLogs,
+  scrapeDutchAuctionEventLogs
 };

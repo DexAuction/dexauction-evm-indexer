@@ -2,50 +2,50 @@ const mongoose = require("mongoose");
 
 const asset = new mongoose.Schema({
   assetContractAddress: {
-    type: String,
+    type: String
   },
   assetTokenId: {
-    type: Number,
+    type: Number
   },
   mintedAt: {
-    type: String,
+    type: String
   },
   mintedBy: {
-    type: String,
+    type: String
   },
   name: {
-    type: String,
+    type: String
   },
   description: {
-    type: String,
+    type: String
   },
   image: {
-    type: String,
+    type: String
   },
   attributes: {
-    type: Object,
+    type: Object
   },
   external_url: {
-    type: String,
+    type: String
   },
   metadataURL: {
-    type: String,
+    type: String
   },
   metadataJSON: {
-    type: Object,
+    type: Object
   },
   owner: {
-    type: String,
+    type: String
   },
   background_image: {
-    type: String,
+    type: String
   },
   background_color: {
-    type: String,
+    type: String
   },
   NFTCollection: {
-    type: String,
-  },
+    type: String
+  }
 });
 
 module.exports = mongoose.model("assets", asset);

@@ -1,18 +1,18 @@
 const mongoose = require("mongoose");
 
-//manual entry in this table 
+//manual entry in this table
 const masterTemplate = new mongoose.Schema({
   tokenContract: {
     type: String,
-    unique: true,
+    unique: true
   },
   // metadataMapping
   template: {
-    type: Object,
+    type: Object
   },
   name: {
-    type: String,
-  },
+    type: String
+  }
 });
 
 module.exports = mongoose.model("masterTemplate", masterTemplate);
