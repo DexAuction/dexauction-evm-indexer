@@ -62,11 +62,11 @@ async function eventScraping() {
 
 const CronJob = require('cron').CronJob;
 const scrapingJob = new CronJob(
-	'1 * * * * *',
-	async () => {
-		console.log("\nStarting event scraping ...");
+  '1 * * * * *',
+  async () => {
+    console.log("\nStarting event scraping ...");
     await eventScraping();
-	}
+  }
 );
 
 app.listen(PORT, async () => {
