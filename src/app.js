@@ -2,7 +2,7 @@ const express = require("express");
 const bodyParser = require("body-parser");
 const mongo = require("./db");
 const app = express();
-const { NETWORK_CONFIG } = require("./config");
+const { NETWORK_CONFIG, CONFIRMATION_COUNT } = require("./config");
 
 const last_seen_blocks = require("./models/last_seen_blocks");
 
@@ -41,6 +41,25 @@ const {
   DutchAuctionCancelEventSubscription,
   scrapeDutchAuctionEventLogs,
 } = require("./services/DutchAuctionEvents");
+
+async function eventSubscriptions() {
+  await EnglishCreateAuctionEventSubscription();
+  await EnglishConfigureAuctionEventSubscription();
+  await EnglishPlaceBidEventSubscription();
+  await EnglishAuctionCancelEventSubscription();
+  await EnglishAuctionEndEventSubscription();
+  await EnglishAuctionCompleteEventSubscription();
+  await DutchCreateAuctionEventSubscription();
+  await DutchConfigureAuctionEventSubscription();
+  await DutchAcceptPriceEventSubscription();
+  await DutchAuctionCancelEventSubscription();
+}
+
+async function eventScraping() {
+  await scrapeEnglishAuctionEventLogs();
+  await scrapeDutchAuctionEventLogs();
+}
+
 app.listen(PORT, async () => {
   try {
     await mongo.connect();
@@ -54,18 +73,10 @@ app.listen(PORT, async () => {
     const healthData = await getHealth();
     console.log("healthData", healthData);
 
-    await EnglishCreateAuctionEventSubscription();
-    await EnglishConfigureAuctionEventSubscription();
-    await EnglishPlaceBidEventSubscription();
-    await EnglishAuctionCancelEventSubscription();
-    await EnglishAuctionEndEventSubscription();
-    await EnglishAuctionCompleteEventSubscription();
-    await DutchCreateAuctionEventSubscription();
-    await DutchConfigureAuctionEventSubscription();
-    await DutchAcceptPriceEventSubscription();
-    await DutchAuctionCancelEventSubscription();
-    await scrapeEnglishAuctionEventLogs();
-    await scrapeDutchAuctionEventLogs();
+    if (CONFIRMATION_COUNT==0) {
+      await eventSubscriptions();
+    }
+    await eventScraping();
   } catch (error) {
     console.log("An error occurred during startup: ", error);
     await mongo.close();
