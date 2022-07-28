@@ -451,11 +451,11 @@ async function updateLastSyncedBlock() {
 }
 
 let processing = false;
-let x = false;
+let initialised = false;
 
 const scrapeEnglishAuctionEventLogs = async function () {
   try {
-    if (processing || x==false) {
+    if (processing || initialised==false) {
       return;
     }
     processing = true;
@@ -613,7 +613,7 @@ const initScrapeEnglishAuctionEventLogs = async function (lastSeenBlockRes) {
     });
     console.log("allEventLogsProxy English", allEventLogsProxy);
     console.log("allEventLogs", allEventLogs);
-    x = true;
+    initialised = true;
 
     for (element of allEventLogs) {
       const seenTx = await seenTransactionModel.findOne({
@@ -679,7 +679,7 @@ const initScrapeEnglishAuctionEventLogs = async function (lastSeenBlockRes) {
           let Bid = element.returnValues.bid;
           let bidder = element.returnValues.winner;
 
-          _placeBid(element, auctionId, bidder, Bid);
+          _placeBid(element, AuctionId, bidder, Bid);
           break;
         case "AuctionComplete":
           _auctionComplete(element);
@@ -698,8 +698,6 @@ const initScrapeEnglishAuctionEventLogs = async function (lastSeenBlockRes) {
     await resp.save();
   } catch (error) {
     console.error(error);
-  } finally {
-    processing = false;
   }
 };
 
