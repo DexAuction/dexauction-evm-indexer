@@ -451,10 +451,11 @@ async function updateLastSyncedBlock() {
 }
 
 let processing = false;
+let x = false;
 
 const scrapeEnglishAuctionEventLogs = async function () {
   try {
-    if (processing) {
+    if (processing || x==false) {
       return;
     }
     processing = true;
@@ -582,11 +583,7 @@ const scrapeEnglishAuctionEventLogs = async function () {
 // Initialize Scraping English Auction Event Logs
 const initScrapeEnglishAuctionEventLogs = async function (lastSeenBlockRes) {
   try {
-    if (processing) {
-      return;
-    }
-    processing = true;
-    console.log("Scraping marketplace event logs ...");
+    console.log("Initializing marketplace event logs ...");
 
     const lastSeenBlock = lastSeenBlockRes.blockNumberEnglish;
 
@@ -616,6 +613,8 @@ const initScrapeEnglishAuctionEventLogs = async function (lastSeenBlockRes) {
     });
     console.log("allEventLogsProxy English", allEventLogsProxy);
     console.log("allEventLogs", allEventLogs);
+    x = true;
+
     for (element of allEventLogs) {
       const seenTx = await seenTransactionModel.findOne({
         transactionHash: element.transactionHash,
@@ -664,94 +663,29 @@ const initScrapeEnglishAuctionEventLogs = async function (lastSeenBlockRes) {
           let buyOutPrice = element.returnValues.buyOutPrice;
           let softcloseduration = element.returnValues.softCloseDuration;
           let auctionId = element.returnValues.auctionID;
-
-          await auctionModel.updateOne(
-            { auctionId: auctionId },
-            {
-              englishAuctionAttribute: {
-                opening_price: openingPriceDecode,
-                min_increment: minIncrementDecode,
-                start_timestamp: startTimestamp * 1000,
-                end_timestamp: endTimestamp * 1000,
-                start_datetime: new Date(startTimestamp * 1000),
-                end_datetime: new Date(endTimestamp * 1000),
-                soft_close_duration: softcloseduration,
-                buyout_price: buyOutPrice,
-                winning_bid: 0,
-              },
-              state: "ONGOING",
-            }
+          _configureAuction(
+            element,
+            auctionId,
+            openingPriceDecode,
+            startTimestamp,
+            endTimestamp,
+            minIncrementDecode,
+            softcloseduration,
+            buyOutPrice
           );
-
-          const seentxConfigure = new seenTransactionModel({
-            transactionHash: element.transactionHash,
-            blockNumber: element.blockNumber,
-            eventLog: element,
-            state: "APPLIED",
-          });
-          await seentxConfigure.save();
           break;
         case "PlaceBid":
           let AuctionId = element.returnValues.auctionID;
           let Bid = element.returnValues.bid;
           let bidder = element.returnValues.winner;
 
-          await auctionModel.updateMany(
-            { auctionId: AuctionId },
-            {
-              $push: {
-                "englishAuctionAttribute.bids": [
-                  {
-                    address: bidder,
-                    bid: Bid,
-                  },
-                ],
-                bidders: bidder,
-              },
-            }
-          );
-          const seentxBid = new seenTransactionModel({
-            transactionHash: element.transactionHash,
-            blockNumber: element.blockNumber,
-            eventLog: element,
-            state: "APPLIED",
-          });
-          await seentxBid.save();
+          _placeBid(element, auctionId, bidder, Bid);
           break;
         case "AuctionComplete":
-          await auctionModel.updateMany(
-            { auctionId: element.returnValues.auctionID },
-            {
-              $set: {
-                "englishAuctionAttribute.winning_bid":
-                  element.returnValues.winningBid,
-              },
-              buyer: element.returnValues.winner,
-              state: "SUCCESSFULLY-COMPLETED",
-            }
-          );
-          const seentxComplete = new seenTransactionModel({
-            transactionHash: element.transactionHash,
-            blockNumber: element.blockNumber,
-            eventLog: element,
-            state: "APPLIED",
-          });
-          await seentxComplete.save();
+          _auctionComplete(element);
           break;
         case "AuctionCancel":
-          await auctionModel.updateOne(
-            { auctionId: element.returnValues.auctionID },
-            {
-              state: "CANCELLED",
-            }
-          );
-          const seentxCancel = new seenTransactionModel({
-            transactionHash: element.transactionHash,
-            blockNumber: element.blockNumber,
-            eventLog: element,
-            state: "APPLIED",
-          });
-          await seentxCancel.save();
+          _cancelAuction(element);
         default:
           break;
       }

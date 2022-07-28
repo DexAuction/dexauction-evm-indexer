@@ -329,10 +329,11 @@ async function updateLastSyncedBlock() {
 }
 
 let processing = false;
+let x = false;
 
 const scrapeDutchAuctionEventLogs = async function () {
   try {
-    if (processing) {
+    if (processing || x==false) {
       return;
     }
     processing = true;
@@ -456,11 +457,7 @@ const scrapeDutchAuctionEventLogs = async function () {
 // Initialize scrapeDutchAuctionEventLogs
 const initScrapeDutchAuctionEventLogs = async function (lastSeenBlockRes) {
   try {
-    if (processing) {
-      return;
-    }
-    processing = true;
-    console.log("Scraping dutch auction event logs ...");
+    console.log("Initializing dutch auction event logs ...");
 
     const lastSeenBlock = lastSeenBlockRes.blockNumberDutch;
 
@@ -486,6 +483,7 @@ const initScrapeDutchAuctionEventLogs = async function (lastSeenBlockRes) {
 
     console.log("allEventLogsProxy Dutch", allEventLogsProxy);
     console.log("allEventLogs", allEventLogs);
+    x = true;
 
     for (element of allEventLogs) {
       const seenTx = await seenTransactionModel.findOne({
@@ -534,64 +532,24 @@ const initScrapeDutchAuctionEventLogs = async function (lastSeenBlockRes) {
           let dropAmount = element.returnValues.dropAmount;
           let roundDuration = element.returnValues.roundDuration;
           let auctionID = element.returnValues.auctionId;
-
-          await auctionModel.updateOne(
-            { auctionId: auctionID },
-            {
-              dutchAuctionAttribute: {
-                opening_price: openingPriceDecode,
-                round_duration: roundDuration,
-                start_timestamp: startTimestamp * 1000,
-                start_datetime: new Date(startTimestamp * 1000),
-                reserve_price: reservePriceDecode,
-                drop_amount: dropAmount,
-                winning_bid: 0,
-              },
-              state: "ONGOING",
-            }
+          _configureAuction(
+            element,
+            auctionId,
+            openingPriceDecode,
+            roundDuration,
+            startTimestamp,
+            reservePriceDecode,
+            dropAmount
           );
-          const seentxConfigure = new seenTransactionModel({
-            transactionHash: element.transactionHash,
-            blockNumber: element.blockNumber,
-            eventLog: element,
-            state: "APPLIED",
-          });
-          await seentxConfigure.save();
           break;
         case "PriceAccept":
           let AuctionId = element.returnValues.auctionId;
           let winBid = element.returnValues.winningBid;
           let auctionWinner = element.returnValues.winner;
-          await auctionModel.updateMany(
-            { auctionId: AuctionId },
-            {
-              $set: { "dutchAuctionAttribute.winning_bid": winBid },
-              buyer: auctionWinner,
-              state: "SUCCESSFULLY-COMPLETED",
-            }
-          );
-          const seentxPriceAccept = new seenTransactionModel({
-            transactionHash: element.transactionHash,
-            blockNumber: element.blockNumber,
-            eventLog: element,
-            state: "APPLIED",
-          });
-          await seentxPriceAccept.save();
+          _acceptPrice(element, AuctionId, winBid, auctionWinner)
           break;
         case "AuctionCancel":
-          await auctionModel.updateOne(
-            { auctionId: element.returnValues.auctionId },
-            {
-              state: "CANCELLED",
-            }
-          );
-          const seentxCancel = new seenTransactionModel({
-            transactionHash: element.transactionHash,
-            blockNumber: element.blockNumber,
-            eventLog: element,
-            state: "APPLIED",
-          });
-          await seentxCancel.save();
+          _cancelAuction(element);
         default:
           break;
       }
@@ -604,9 +562,7 @@ const initScrapeDutchAuctionEventLogs = async function (lastSeenBlockRes) {
     await resp.save();
   } catch (error) {
     console.error(error);
-  } finally {
-    processing = false;
-  }
+  } 
 };
 
 async function _createAuction(
