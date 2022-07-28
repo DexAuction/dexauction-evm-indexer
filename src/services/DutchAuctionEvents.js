@@ -449,7 +449,7 @@ const scrapeDutchAuctionEventLogs = async function () {
     await resp.save();
   } catch (error) {
     console.error(error);
-  } finally {s
+  } finally {
     processing = false;
   }
 };
