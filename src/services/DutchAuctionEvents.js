@@ -333,7 +333,7 @@ let initialised = false;
 
 const scrapeDutchAuctionEventLogs = async function () {
   try {
-    if (processing || initialised==false) {
+    if (processing || !initialised) {
       return;
     }
     processing = true;
@@ -483,7 +483,6 @@ const initScrapeDutchAuctionEventLogs = async function (lastSeenBlockRes) {
 
     console.log("allEventLogsProxy Dutch", allEventLogsProxy);
     console.log("allEventLogs", allEventLogs);
-    initialised = true;
 
     for (element of allEventLogs) {
       const seenTx = await seenTransactionModel.findOne({
@@ -560,6 +559,7 @@ const initScrapeDutchAuctionEventLogs = async function (lastSeenBlockRes) {
       { new: true }
     );
     await resp.save();
+    initialised = true;
   } catch (error) {
     console.error(error);
   } 
