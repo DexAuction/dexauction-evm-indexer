@@ -15,4 +15,3 @@ const scrapingJob = new CronJob(
 module.exports = {
   scrapingJob
 };
-  
