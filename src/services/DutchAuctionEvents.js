@@ -329,10 +329,11 @@ async function updateLastSyncedBlock() {
 }
 
 let processing = false;
+let initialised = false;
 
 const scrapeDutchAuctionEventLogs = async function () {
   try {
-    if (processing) {
+    if (processing || !initialised) {
       return;
     }
     processing = true;
@@ -453,6 +454,117 @@ const scrapeDutchAuctionEventLogs = async function () {
   }
 };
 
+// Initialize scrapeDutchAuctionEventLogs
+const initScrapeDutchAuctionEventLogs = async function (lastSeenBlockRes) {
+  try {
+    console.log("Initializing dutch auction event logs ...");
+
+    const lastSeenBlock = lastSeenBlockRes.blockNumberDutch;
+
+    // Start from block next to the last seen block till the (latestBlock - CONFIRMATION_COUNT)
+    const fromBlock = parseInt(lastSeenBlock) + 1 + "";
+    const latestBlockNumber = await web3.eth.getBlockNumber();
+    let toBlock;
+    if (latestBlockNumber > config.CONFIRMATION_COUNT) {
+      toBlock = latestBlockNumber - config.CONFIRMATION_COUNT + "";
+    } else {
+      toBlock = fromBlock;
+    }
+
+    const allEventLogs = await DutchAuctionContract.getPastEvents("allEvents", {
+      fromBlock,
+      toBlock,
+    });
+
+    const allEventLogsProxy = await ProxyContract.getPastEvents("allEvents", {
+      fromBlock,
+      toBlock,
+    });
+
+    console.log("allEventLogsProxy Dutch", allEventLogsProxy);
+    console.log("allEventLogs", allEventLogs);
+
+    for (element of allEventLogs) {
+      const seenTx = await seenTransactionModel.findOne({
+        transactionHash: element.transactionHash,
+      });
+      if (seenTx) {
+        console.log(
+          `transaction already applied with tx hash ${element.transactionHash}`
+        );
+        continue;
+      }
+      switch (element.event) {
+        case "AuctionCreate":
+          let tokenContractAddress;
+          let tokenID;
+          let auctiontype;
+          for (item of allEventLogsProxy) {
+            if (
+              item.event == "AuctionCreateProxy" &&
+              item.returnValues.auction_type == "dutch" &&
+              item.transactionHash == element.transactionHash
+            ) {
+              console.log("Hi from Dutch");
+              tokenContractAddress = item.returnValues.tokenContractAddress;
+              tokenID = item.returnValues.tokenId;
+              auctiontype = item.returnValues.auction_type;
+            }
+          }
+          if (auctiontype == "dutch") {
+            _createAuction(
+              element.transactionHash,
+              element,
+              element.returnValues.auctionId,
+              element.returnValues.auctionOwner,
+              auctiontype,
+              tokenID,
+              tokenContractAddress,
+              element.returnValues.startTime
+            );
+            break;
+          }
+        case "AuctionConfigure":
+          let openingPriceDecode = element.returnValues.openingPrice;
+          let reservePriceDecode = element.returnValues.reservePrice;
+          let startTimestamp = element.returnValues.startTime;
+          let dropAmount = element.returnValues.dropAmount;
+          let roundDuration = element.returnValues.roundDuration;
+          let auctionID = element.returnValues.auctionId;
+          _configureAuction(
+            element,
+            auctionID,
+            openingPriceDecode,
+            roundDuration,
+            startTimestamp,
+            reservePriceDecode,
+            dropAmount
+          );
+          break;
+        case "PriceAccept":
+          let AuctionId = element.returnValues.auctionId;
+          let winBid = element.returnValues.winningBid;
+          let auctionWinner = element.returnValues.winner;
+          _acceptPrice(element, AuctionId, winBid, auctionWinner)
+          break;
+        case "AuctionCancel":
+          _cancelAuction(element);
+        default:
+          break;
+      }
+    }
+    const resp = await lastSeenBlocksModel.findOneAndUpdate(
+      {},
+      { blockNumberDutch: toBlock },
+      { new: true }
+    );
+    await resp.save();
+    initialised = true;
+  } catch (error) {
+    console.error(error);
+  } 
+};
+
 async function _createAuction(
   txHash,
   EventLog,
@@ -563,4 +675,5 @@ module.exports = {
   DutchAcceptPriceEventSubscription,
   DutchAuctionCancelEventSubscription,
   scrapeDutchAuctionEventLogs,
+  initScrapeDutchAuctionEventLogs
 };
