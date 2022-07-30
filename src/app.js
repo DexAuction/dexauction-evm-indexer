@@ -31,7 +31,8 @@ const {
   EnglishAuctionCancelEventSubscription,
   EnglishAuctionEndEventSubscription,
   EnglishAuctionCompleteEventSubscription,
-  scrapeEnglishAuctionEventLogs
+  scrapeEnglishAuctionEventLogs,
+  initScrapeEnglishAuctionEventLogs
 } = require("./services/EnglishAuctionEvents");
 
 const {
@@ -39,8 +40,23 @@ const {
   DutchConfigureAuctionEventSubscription,
   DutchAcceptPriceEventSubscription,
   DutchAuctionCancelEventSubscription,
-  scrapeDutchAuctionEventLogs
+  scrapeDutchAuctionEventLogs,
+  initScrapeDutchAuctionEventLogs
 } = require("./services/DutchAuctionEvents");
+
+// initialize function to initialize the block indexer
+async function initialize() {
+  const lastSeenBlockInstance = await last_seen_blocks.findOne();
+  if (!lastSeenBlockInstance) {
+    lastSeenBlockInstance = new last_seen_blocks({
+      blockNumberEnglish: NETWORK_CONFIG.START_BLOCK_ENGLISH,
+      blockNumberDutch: NETWORK_CONFIG.START_BLOCK_DUTCH
+    });
+    await lastSeenBlockInstance.save();
+  }
+  await initScrapeEnglishAuctionEventLogs(lastSeenBlockInstance);
+  await initScrapeDutchAuctionEventLogs(lastSeenBlockInstance);
+}
 
 async function eventSubscriptions() {
   await EnglishCreateAuctionEventSubscription();
@@ -64,6 +80,7 @@ app.listen(PORT, async () => {
   try {
     await mongo.connect();
     await seedDbEntries();
+    await initialize();
     console.log(
       "\n\n\n\n******************************************************************************  " +
         "Server is running on port " +
