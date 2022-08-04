@@ -87,11 +87,11 @@ app.listen(PORT, async () => {
     if (CONFIRMATION_COUNT==0) {
       await eventSubscriptions();
     }
+
+    scrapingJob.start();
   } catch (error) {
     console.log("An error occurred during startup: ", error);
     await mongo.close();
     process.exit(1);
   }
 });
-
-scrapingJob.start();
