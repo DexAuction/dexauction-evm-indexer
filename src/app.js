@@ -24,6 +24,7 @@ async function seedDbEntries() {
 // set port, listen for requests, start cron
 const PORT = process.env.PORT || 3000;
 const { getHealth } = require("./health");
+const { scrapingJob } = require("./cron")
 const {
   EnglishCreateAuctionEventSubscription,
   EnglishConfigureAuctionEventSubscription,
@@ -31,7 +32,6 @@ const {
   EnglishAuctionCancelEventSubscription,
   EnglishAuctionEndEventSubscription,
   EnglishAuctionCompleteEventSubscription,
-  scrapeEnglishAuctionEventLogs,
   initScrapeEnglishAuctionEventLogs
 } = require("./services/EnglishAuctionEvents");
 
@@ -40,12 +40,11 @@ const {
   DutchConfigureAuctionEventSubscription,
   DutchAcceptPriceEventSubscription,
   DutchAuctionCancelEventSubscription,
-  scrapeDutchAuctionEventLogs,
   initScrapeDutchAuctionEventLogs
 } = require("./services/DutchAuctionEvents");
 
 // initialize function to initialize the block indexer
-  async function initialize() {
+async function initialize() {
   const lastSeenBlockInstance = await last_seen_blocks.findOne();
   if (!lastSeenBlockInstance) {
       lastSeenBlockInstance = new last_seen_blocks({
@@ -71,11 +70,6 @@ async function eventSubscriptions() {
   await DutchAuctionCancelEventSubscription();
 }
 
-async function eventScraping() {
-  await scrapeEnglishAuctionEventLogs();
-  await scrapeDutchAuctionEventLogs();
-}
-
 app.listen(PORT, async () => {
   try {
     await mongo.connect();
@@ -93,7 +87,8 @@ app.listen(PORT, async () => {
     if (CONFIRMATION_COUNT==0) {
       await eventSubscriptions();
     }
-    await eventScraping();
+
+    scrapingJob.start();
   } catch (error) {
     console.log("An error occurred during startup: ", error);
     await mongo.close();
