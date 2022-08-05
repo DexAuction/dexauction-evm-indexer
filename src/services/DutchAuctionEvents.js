@@ -601,7 +601,6 @@ async function _createAuction(
     state: "APPLIED",
   });
   await seentx.save();
-  await utils.createAsset(txHash, auctionOwner);
 }
 
 async function _configureAuction(

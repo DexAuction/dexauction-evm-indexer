@@ -9,6 +9,10 @@ const last_seen_blocks = new mongoose.Schema({
     type: String,
     required: true,
   },
+  blockNumberNFT: {
+    type: String,
+    required: true,
+  }
 });
 last_seen_blocks.set("timestamps", true);
 

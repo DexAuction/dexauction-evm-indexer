@@ -17,6 +17,7 @@ async function seedDbEntries() {
     const lastSeenBlock = new last_seen_blocks({
       blockNumberEnglish: NETWORK_CONFIG.START_BLOCK_ENGLISH,
       blockNumberDutch: NETWORK_CONFIG.START_BLOCK_DUTCH,
+      blockNumberNFT: NETWORK_CONFIG.START_BLOCK_NFT
     });
     await lastSeenBlock.save();
   }
@@ -44,6 +45,12 @@ const {
   initScrapeDutchAuctionEventLogs
 } = require("./services/DutchAuctionEvents");
 
+const {
+  NftTransferEventSubscription,
+  scrapeNftContractEventLogs,
+  initScrapeNftContractEventLogs
+} = require("./services/NFTContractEvents");
+
 // initialize function to initialize the block indexer
   async function initialize() {
   const lastSeenBlockInstance = await last_seen_blocks.findOne();
@@ -51,11 +58,13 @@ const {
       lastSeenBlockInstance = new last_seen_blocks({
       blockNumberEnglish: NETWORK_CONFIG.START_BLOCK_ENGLISH,
       blockNumberDutch: NETWORK_CONFIG.START_BLOCK_DUTCH,
+      blockNumberNFT: NETWORK_CONFIG.START_BLOCK_NFT
     });
     await lastSeenBlockInstance.save();
   }
   await initScrapeEnglishAuctionEventLogs(lastSeenBlockInstance);
   await initScrapeDutchAuctionEventLogs(lastSeenBlockInstance);
+  await initScrapeNftContractEventLogs(lastSeenBlockInstance);
 }
 
 async function eventSubscriptions() {
@@ -69,11 +78,13 @@ async function eventSubscriptions() {
   await DutchConfigureAuctionEventSubscription();
   await DutchAcceptPriceEventSubscription();
   await DutchAuctionCancelEventSubscription();
+  await NftTransferEventSubscription();
 }
 
 async function eventScraping() {
   await scrapeEnglishAuctionEventLogs();
   await scrapeDutchAuctionEventLogs();
+  await scrapeNftContractEventLogs();
 }
 
 app.listen(PORT, async () => {
