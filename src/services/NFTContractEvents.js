@@ -122,25 +122,11 @@ const scrapeNftContractEventLogs = async function () {
       }
       switch(element.event) {
         case "Transfer":
-            let recipient;
-            let tokenId;
-            let tokenContractAddress;
 
-            for (item of allEventLogsProxy) {
-            if (
-              item.transactionHash == element.transactionHash
-            ) {
-              tokenContractAddress = item.returnValues.tokenContractAddress;
-              tokenId = item.returnValues.tokenId;
-              recipient = item.returnValues.recipient;
-            }
-          }
           promise.push(
-            _createAsset(
+            utils.createAsset(
               element.transactionHash,
-              element,
-              tokenId,
-              recipient,
+              element.returnValues.newOwner
             )
           );
           break;
@@ -202,24 +188,10 @@ const initScrapeNftContractEventLogs = async function (lastSeenBlockRes) {
       }
       switch(element.event) {
         case "Transfer":
-            let recipient;
-            let tokenId;
-            let tokenContractAddress;
-
-            for (item of allEventLogsProxy) {
-            if (
-              item.transactionHash == element.transactionHash
-            ) {
-              tokenContractAddress = item.returnValues.tokenContractAddress;
-              tokenId = item.returnValues.tokenId;
-              recipient = item.returnValues.recipient;
-            }
-          }
-            _createAsset(
+            
+            utils.createAsset(
               element.transactionHash,
-              element,
-              tokenId,
-              recipient,
+              element.returnValues.newOwner
             );
           break;
           default:
@@ -232,6 +204,7 @@ const initScrapeNftContractEventLogs = async function (lastSeenBlockRes) {
       { new: true }
     );
     await resp.save();
+    initialised = true;
   } catch (error) {
     console.log(error);
   } 
