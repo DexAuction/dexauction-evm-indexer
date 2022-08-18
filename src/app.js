@@ -17,7 +17,8 @@ async function seedDbEntries() {
     const lastSeenBlock = new last_seen_blocks({
       blockNumberEnglish: NETWORK_CONFIG.START_BLOCK_ENGLISH,
       blockNumberDutch: NETWORK_CONFIG.START_BLOCK_DUTCH,
-      blockNumberNFT: NETWORK_CONFIG.START_BLOCK_NFT
+      blockNumberDecentralandNFT: NETWORK_CONFIG.START_BLOCK_DECENTRALANDNFT,
+      blockNumberENSNFT: NETWORK_CONFIG.START_BLOCK_ENSNFT,
     });
     await lastSeenBlock.save();
   }
@@ -25,7 +26,7 @@ async function seedDbEntries() {
 // set port, listen for requests, start cron
 const PORT = process.env.PORT || 3000;
 const { getHealth } = require("./health");
-const { scrapingJob } = require("./cron")
+const { scrapingJob } = require("./cron");
 const {
   EnglishCreateAuctionEventSubscription,
   EnglishConfigureAuctionEventSubscription,
@@ -33,7 +34,7 @@ const {
   EnglishAuctionCancelEventSubscription,
   EnglishAuctionEndEventSubscription,
   EnglishAuctionCompleteEventSubscription,
-  initScrapeEnglishAuctionEventLogs
+  initScrapeEnglishAuctionEventLogs,
 } = require("./services/EnglishAuctionEvents");
 
 const {
@@ -41,28 +42,29 @@ const {
   DutchConfigureAuctionEventSubscription,
   DutchAcceptPriceEventSubscription,
   DutchAuctionCancelEventSubscription,
-  initScrapeDutchAuctionEventLogs
+  initScrapeDutchAuctionEventLogs,
 } = require("./services/DutchAuctionEvents");
 
 const {
   NftTransferEventSubscription,
-  initScrapeNftContractEventLogs
+  initScrapeNftContractEventLogs,
 } = require("./services/NFTContractEvents");
 
 // initialize function to initialize the block indexer
 async function initialize() {
   const lastSeenBlockInstance = await last_seen_blocks.findOne();
   if (!lastSeenBlockInstance) {
-      lastSeenBlockInstance = new last_seen_blocks({
+    lastSeenBlockInstance = new last_seen_blocks({
       blockNumberEnglish: NETWORK_CONFIG.START_BLOCK_ENGLISH,
       blockNumberDutch: NETWORK_CONFIG.START_BLOCK_DUTCH,
-      blockNumberNFT: NETWORK_CONFIG.START_BLOCK_NFT
+      blockNumberDecentralandNFT: NETWORK_CONFIG.START_BLOCK_DECENTRALANDNFT,
+      blockNumberENSNFT: NETWORK_CONFIG.START_BLOCK_ENSNFT,
     });
     await lastSeenBlockInstance.save();
   }
+  await initScrapeNftContractEventLogs(lastSeenBlockInstance);
   await initScrapeEnglishAuctionEventLogs(lastSeenBlockInstance);
   await initScrapeDutchAuctionEventLogs(lastSeenBlockInstance);
-  await initScrapeNftContractEventLogs(lastSeenBlockInstance);
 }
 
 async function eventSubscriptions() {
@@ -93,7 +95,7 @@ app.listen(PORT, async () => {
     const healthData = await getHealth();
     console.log("healthData", healthData);
 
-    if (CONFIRMATION_COUNT==0) {
+    if (CONFIRMATION_COUNT == 0) {
       await eventSubscriptions();
     }
 

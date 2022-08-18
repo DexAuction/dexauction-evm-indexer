@@ -2,68 +2,69 @@ const res = require("express/lib/response");
 const Web3 = require("web3");
 const config = require("../config");
 const web3 = new Web3(config.NETWORK_CONFIG.WS_NETWORK_URL);
-const assetModel = require("../models/asset");
 const lastSeenBlocksModel = require("../models/last_seen_blocks");
 const seenTransactionModel = require("../models/seenTransaction");
-const { DECENTRALAND_NFT_CONTRACT_ABI, PROXY_AUCTION_ABI } = require("../abi");
-const utils = require("../helper/utils");
-const NFTContract = new web3.eth.Contract(
+const {
+  DECENTRALAND_NFT_CONTRACT_ABI,
+  ENS_NFT_CONTRACT_ABI,
+} = require("../abi");
+const { createAsset } = require("../helper/utils");
+
+const DecentralandAssetContract = new web3.eth.Contract(
   DECENTRALAND_NFT_CONTRACT_ABI,
   config.NETWORK_CONFIG.DECENTRALAND_NFT_CONTRACT_ADDRESS
 );
-
+const ENSAssetContract = new web3.eth.Contract(
+  ENS_NFT_CONTRACT_ABI,
+  config.NETWORK_CONFIG.ENS_NFT_CONTRACT_ADDRESS
+);
 const NftTransferEventSubscription = async function () {
-    await updateLastSyncedBlock();
+  await updateLastSyncedBlock();
 
-    let recipient;
-    let tokenId;
-    let transactionHash;
+  let recipient;
+  let tokenId;
+  let transactionHash;
 
-    const subscribingNftTransfer = await web3.eth.subscribe(
-        "logs",
-        {
-            address: config.NETWORK_CONFIG.DECENTRALAND_NFT_CONTRACT_ADDRESS.toLowerCase(),
-        },
+  const subscribingNftTransfer = await web3.eth.subscribe(
+    "logs",
+    {
+      address: [
+        config.NETWORK_CONFIG.DECENTRALAND_NFT_CONTRACT_ADDRESS.toLowerCase(),
+        config.NETWORK_CONFIG.ENS_NFT_CONTRACT_ADDRESS.toLowerCase(),
+      ],
+    },
 
-        async function(err, result) {
-            if (
-            !err &&
-            result.address.toLowerCase() ===
-                config.NETWORK_CONFIG.DECENTRALAND_NFT_CONTRACT_ADDRESS.toLowerCase() &&
-            result.topics[1] === "0"   
-            ) {
-                const seenTx = await seenTransactionModel.findOne({
-                    transactionHash: result.transactionHash,
-                });
-                if (seenTx) {
-                  console.log(
-                    `transaction already applied with transaction hash ${result.transactionHash}`
-                  );
-                  return;
-                }
-
-                transactionHash = result.transactionHash;
-
-                recipient = web3.eth.abi.decodeParameter(
-                    "address",
-                    result.topics[2]
-                );
-
-                tokenId = web3.eth.abi.decodeParameter(
-                    "uint256",
-                    result.topics[3]
-                );
-
-                // save in database
-                _createAsset(
-                    transactionHash,
-                    result,
-                    tokenId,
-                    recipient,
-                )
-            }
+    async function (err, result) {
+      if (
+        !err &&
+        (result.address.toLowerCase() ===
+          config.NETWORK_CONFIG.DECENTRALAND_NFT_CONTRACT_ADDRESS.toLowerCase() ||
+          result.address.toLowerCase() ===
+            config.NETWORK_CONFIG.ENS_NFT_CONTRACT_ADDRESS.toLowerCase()) &&
+        result.topics[1] ===
+          "0x0000000000000000000000000000000000000000000000000000000000000000"
+      ) {
+        const seenTx = await seenTransactionModel.findOne({
+          transactionHash: result.transactionHash,
+        });
+        if (seenTx) {
+          console.log(
+            `transaction already applied with transaction hash ${result.transactionHash}`
+          );
+          return;
         }
-    );
+
+        transactionHash = result.transactionHash;
+
+        recipient = web3.eth.abi.decodeParameter("address", result.topics[2]);
+
+        tokenId = web3.eth.abi.decodeParameter("uint256", result.topics[3]);
+
+        // save in database
+        _createAsset(result, tokenId, recipient);
+      }
+    }
+  );
 };
 
 async function updateLastSyncedBlock() {
@@ -80,64 +81,123 @@ let processing = false;
 let initialised = false;
 
 const scrapeNftContractEventLogs = async function () {
-    try {
-      if (processing || !initialised) {
+  try {
+    console.log(processing, initialised);
+    if (processing || !initialised) {
       return;
     }
     processing = true;
     console.log("Scraping NFT contract event logs...");
     const lastSeenBlockRes = await lastSeenBlocksModel.findOne();
 
-    const lastSeenBlock = lastSeenBlockRes.blockNumberNFT;
-
+    const lastSeenBlockDecentraland =
+      lastSeenBlockRes.blockNumberDecentralandNFT;
+    const lastSeenBlockENS = lastSeenBlockRes.blockNumberENSNFT;
     // Start from block next to the last seen block till the (latestBlock - CONFIRMATION_COUNT)
-    const fromBlock = parseInt(lastSeenBlock) + 1 + "";
+    let fromBlockDecentraland = parseInt(lastSeenBlockDecentraland) + 1 + "";
+    let fromBlockENS = parseInt(lastSeenBlockENS) + 1 + "";
     const latestBlockNumber = await web3.eth.getBlockNumber();
-    let toBlock;
+    let toBlockDecentraland;
+    let toBlockENS;
     if (latestBlockNumber > config.CONFIRMATION_COUNT) {
-      toBlock = latestBlockNumber - config.CONFIRMATION_COUNT + "";
+      toBlockDecentraland = latestBlockNumber - config.CONFIRMATION_COUNT + "";
+      toBlockENS = latestBlockNumber - config.CONFIRMATION_COUNT + "";
     } else {
-      toBlock = fromBlock;
+      toBlockDecentraland = fromBlockDecentraland;
+      toBlockENS = fromBlockENS;
+    }
+    let promises = [];
+    if (fromBlockDecentraland <= toBlockDecentraland) {
+      const allEventLogsDecentraland =
+        await DecentralandAssetContract.getPastEvents("allEvents", {
+          fromBlock: fromBlockDecentraland,
+          toBlock: toBlockDecentraland,
+        });
+      console.log("allEventLogs Decentraland", allEventLogsDecentraland);
+      for (element of allEventLogsDecentraland) {
+        if (
+          (element.returnValues.from =
+            "0x0000000000000000000000000000000000000000")
+        ) {
+          const seenTx = await seenTransactionModel.findOne({
+            transactionHash: element.transactionHash,
+          });
+          if (seenTx) {
+            console.log(
+              `transaction already applied with tx hash ${element.transactionHash}`
+            );
+            continue;
+          }
+          switch (element.event) {
+            case "Transfer":
+              promises.push(
+                _createAsset(
+                  element,
+                  element.returnValues.tokenId,
+                  element.returnValues.to
+                )
+              );
+              break;
+            default:
+              break;
+          }
+        }
+      }
+    }
+    if (fromBlockENS <= toBlockENS) {
+      const allEventLogsENS = await ENSAssetContract.getPastEvents(
+        "allEvents",
+        {
+          fromBlock: fromBlockENS,
+          toBlock: toBlockENS,
+        }
+      );
+      console.log("allEventLogs ENS", allEventLogsENS);
+
+      for (element of allEventLogsENS) {
+        if (
+          (element.returnValues.from =
+            "0x0000000000000000000000000000000000000000")
+        ) {
+          const seenTx = await seenTransactionModel.findOne({
+            transactionHash: element.transactionHash,
+          });
+          if (seenTx) {
+            console.log(
+              `transaction already applied with tx hash ${element.transactionHash}`
+            );
+            continue;
+          }
+          switch (element.event) {
+            case "Transfer":
+              if (
+                element.returnValues.from ==
+                "0x0000000000000000000000000000000000000000"
+              ) {
+                promises.push(
+                  _createAsset(
+                    element,
+                    element.returnValues.tokenId,
+                    element.returnValues.to
+                  )
+                );
+              }
+
+              break;
+            default:
+              break;
+          }
+        }
+      }
     }
 
-    const allEventLogs = await NFTContract.getPastEvents(
-      "allEvents",
-      {
-        fromBlock,
-        toBlock,
-      }
-    );
-      
-    console.log("allEventLogs", allEventLogs);
-    let promises = [];
-    for (element of allEventLogs) {
-      const seenTx = await seenTransactionModel.findOne({
-        transactionHash: element.transactionHash,
-      });
-      if (seenTx) {
-        console.log(
-          `transaction already applied with tx hash ${element.transactionHash}`
-        );
-        continue;
-      }
-      switch(element.event) {
-        case "Transfer":
-
-          promise.push(
-            utils.createAsset(
-              element.transactionHash,
-              element.returnValues.newOwner
-            )
-          );
-          break;
-          default:
-          break;
-      }
-    } 
     await Promise.all(promises);
     const resp = await lastSeenBlocksModel.findOneAndUpdate(
       {},
-      { blockNumberNFT: toBlock },
+      {
+        blockNumberDecentralandNFT: toBlockDecentraland,
+        blockNumberENSNFT: toBlockENS,
+      },
       { new: true }
     );
     await resp.save();
@@ -148,92 +208,130 @@ const scrapeNftContractEventLogs = async function () {
   }
 };
 
-// Initialize scraping NFT transfer event logs 
+// Initialize scraping NFT transfer event logs
 
 const initScrapeNftContractEventLogs = async function (lastSeenBlockRes) {
-    try {
+  try {
     console.log("Initializing NFT contract event logs...");
 
-    const lastSeenBlock = lastSeenBlockRes.blockNumberNFT;
+    const lastSeenBlockDecentraland =
+      lastSeenBlockRes.blockNumberDecentralandNFT;
+    const lastSeenBlockENS = lastSeenBlockRes.blockNumberENSNFT;
 
     // Start from block next to the last seen block till the (latestBlock - CONFIRMATION_COUNT)
-    const fromBlock = parseInt(lastSeenBlock) + 1 + "";
+    let fromBlockDecentraland = parseInt(lastSeenBlockDecentraland) + 1 + "";
+    let fromBlockENS = parseInt(lastSeenBlockENS) + 1 + "";
     const latestBlockNumber = await web3.eth.getBlockNumber();
-    let toBlock;
+    let toBlockDecentraland;
+    let toBlockENS;
+
     if (latestBlockNumber > config.CONFIRMATION_COUNT) {
-      toBlock = latestBlockNumber - config.CONFIRMATION_COUNT + "";
+      toBlockDecentraland = latestBlockNumber - config.CONFIRMATION_COUNT + "";
+      toBlockENS = latestBlockNumber - config.CONFIRMATION_COUNT + "";
     } else {
-      toBlock = fromBlock;
+      toBlockDecentraland = fromBlockDecentraland;
+      toBlockENS = fromBlockENS;
     }
 
-    const allEventLogs = await NFTContract.getPastEvents(
-      "allEvents",
-      {
-        fromBlock,
-        toBlock,
-      }
-    );
-      
-    console.log("allEventLogs", allEventLogs);
-    let promises = [];
-    for (element of allEventLogs) {
-      const seenTx = await seenTransactionModel.findOne({
-        transactionHash: element.transactionHash,
-      });
-      if (seenTx) {
-        console.log(
-          `transaction already applied with tx hash ${element.transactionHash}`
-        );
-        continue;
-      }
-      switch(element.event) {
-        case "Transfer":
-            
-            utils.createAsset(
-              element.transactionHash,
-              element.returnValues.newOwner
-            );
-          break;
+    if (fromBlockDecentraland <= toBlockDecentraland) {
+      const allEventLogsDecentraland =
+        await DecentralandAssetContract.getPastEvents("allEvents", {
+          fromBlock: fromBlockDecentraland,
+          toBlock: toBlockDecentraland,
+        });
+      console.log(" Init allEventLogs Decentraland ", allEventLogsDecentraland);
+      for (element of allEventLogsDecentraland) {
+        const seenTx = await seenTransactionModel.findOne({
+          transactionHash: element.transactionHash,
+        });
+        if (seenTx) {
+          console.log(
+            `transaction already applied with tx hash ${element.transactionHash}`
+          );
+          continue;
+        }
+        switch (element.event) {
+          case "Transfer":
+            // if coniditon is required here so that it will not pick transfer event emitted through approval of change ownership before
+            // creating auction of this tokenId and only picks the transfer emitted while minting
+            if (
+              element.returnValues.from ==
+              "0x0000000000000000000000000000000000000000"
+            ) {
+              _createAsset(
+                element,
+                element.returnValues.tokenId,
+                element.returnValues.to
+              );
+            }
+
+            break;
           default:
-          break;
+            break;
+        }
       }
-    } 
+    }
+    if (fromBlockENS <= toBlockENS) {
+      const allEventLogsENS = await ENSAssetContract.getPastEvents(
+        "allEvents",
+        {
+          fromBlock: fromBlockENS,
+          toBlock: toBlockENS,
+        }
+      );
+      console.log("Init allEventLogs ENS", allEventLogsENS);
+      for (element of allEventLogsENS) {
+        const seenTx = await seenTransactionModel.findOne({
+          transactionHash: element.transactionHash,
+        });
+        if (seenTx) {
+          console.log(
+            `transaction already applied with tx hash ${element.transactionHash}`
+          );
+          continue;
+        }
+        switch (element.event) {
+          case "Transfer":
+            _createAsset(
+              element,
+              element.returnValues.tokenId,
+              element.returnValues.to
+            );
+            break;
+          default:
+            break;
+        }
+      }
+    }
+
     const resp = await lastSeenBlocksModel.findOneAndUpdate(
       {},
-      { blockNumberNFT: toBlock },
+      {
+        blockNumberDecentralandNFT: toBlockDecentraland,
+        blockNumberENSNFT: toBlockENS,
+      },
       { new: true }
     );
     await resp.save();
     initialised = true;
   } catch (error) {
     console.log(error);
-  } 
+  }
 };
 
-async function _createAsset(
-    txHash,
-    EventLog,
-    tokenId,
-    assetOwner
-) {
-    const dbAsset = new assetModel({
-        assetTokenId: tokenId,
-        owner: assetOwner,
-    })
-    await dbAsset.save();
-
-    const seentx = new seenTransactionModel({
+async function _createAsset(EventLog, tokenId, assetOwner) {
+  const seentx = new seenTransactionModel({
     transactionHash: EventLog.transactionHash,
     blockNumber: EventLog.blockNumber,
     eventLog: EventLog,
     state: "APPLIED",
   });
   await seentx.save();
-  await utils.createAsset(txHash, owner);
+  createAsset(EventLog, tokenId, assetOwner);
 }
 
 module.exports = {
   NftTransferEventSubscription,
   scrapeNftContractEventLogs,
-  initScrapeNftContractEventLogs
+  initScrapeNftContractEventLogs,
 };

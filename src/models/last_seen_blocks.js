@@ -9,7 +9,11 @@ const last_seen_blocks = new mongoose.Schema({
     type: String,
     required: true,
   },
-  blockNumberNFT: {
+  blockNumberDecentralandNFT: {
+    type: String,
+    required: true,
+  },
+  blockNumberENSNFT: {
     type: String,
     required: true,
   }
