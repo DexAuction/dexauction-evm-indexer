@@ -43,6 +43,10 @@ const asset = new mongoose.Schema({
   background_color: {
     type: String,
   },
+  collection_id:{
+    type: mongoose.Schema.Types.ObjectId,
+    ref:'collections'
+  },
   NFTCollection: {
     type: String,
   },

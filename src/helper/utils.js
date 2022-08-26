@@ -4,6 +4,7 @@ const config = require("../config");
 const web3 = new Web3(config.NETWORK_CONFIG.WS_NETWORK_URL);
 const assetModel = require("../models/asset");
 const masterModel = require("../models/NFTContractTemplate");
+const collectionModel = require("../models/collections");
 const {
   DECENTRALAND_NFT_CONTRACT_ABI,
   ENS_NFT_CONTRACT_ABI,
@@ -39,11 +40,15 @@ async function createAsset(Eventlog, assetTokenId, assetOwner) {
   }
 
   try {
+    const getCollection = await collectionModel.findOne({
+      contractAddress: Eventlog.address,
+    });
     console.log("##### Create Asset #######");
     const resp = await axios.get(getTokenURI);
 
     const assetEntry = {
       assetContractAddress: Eventlog.address,
+      collection_id: getCollection._id,
       assetTokenId: assetTokenId,
       mintedAt: "",
       mintedBy: "",
@@ -59,7 +64,6 @@ async function createAsset(Eventlog, assetTokenId, assetOwner) {
       background_color: null,
       NFTCollection: getTemplate.name,
     };
-
     for (let [key, value] of Object.entries(getTemplate.template)) {
       if (value) {
         assetEntry[key] = resp.data[value];
