@@ -8,14 +8,6 @@ const last_seen_blocks = new mongoose.Schema({
   blockNumberDutch: {
     type: String,
     required: true,
-  },
-  blockNumberDecentralandNFT: {
-    type: String,
-    required: true,
-  },
-  blockNumberENSNFT: {
-    type: String,
-    required: true,
   }
 });
 last_seen_blocks.set("timestamps", true);

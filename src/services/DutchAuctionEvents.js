@@ -2,9 +2,9 @@ const Web3 = require("web3");
 const config = require("../config");
 const web3 = new Web3(config.NETWORK_CONFIG.WS_NETWORK_URL);
 const auctionModel = require("../models/auction");
+const assetsModel = require("../models/asset");
 const lastSeenBlocksModel = require("../models/last_seen_blocks");
 const seenTransactionModel = require("../models/seenTransaction");
-const utils = require("../helper/utils");
 const { DUTCH_CONTRACT_ABI, PROXY_AUCTION_ABI } = require("../abi");
 const res = require("express/lib/response");
 
@@ -337,7 +337,7 @@ const scrapeDutchAuctionEventLogs = async function () {
       return;
     }
     processing = true;
-    console.log("Scraping dutch auction event logs ...");
+    console.log("Scraping dutch contract event logs ...");
     const lastSeenBlockRes = await lastSeenBlocksModel.findOne();
 
     const lastSeenBlock = lastSeenBlockRes.blockNumberDutch;
@@ -351,96 +351,100 @@ const scrapeDutchAuctionEventLogs = async function () {
     } else {
       toBlock = fromBlock;
     }
+    if (fromBlock <= toBlock) {
+      const allEventLogs = await DutchAuctionContract.getPastEvents(
+        "allEvents",
+        {
+          fromBlock,
+          toBlock,
+        }
+      );
 
-    const allEventLogs = await DutchAuctionContract.getPastEvents("allEvents", {
-      fromBlock,
-      toBlock,
-    });
-
-    const allEventLogsProxy = await ProxyContract.getPastEvents("allEvents", {
-      fromBlock,
-      toBlock,
-    });
-    console.log("allEventLogsProxy Dutch", allEventLogsProxy);
-    console.log("allEventLogs", allEventLogs);
-    let promises = [];
-    for (element of allEventLogs) {
-      const seenTx = await seenTransactionModel.findOne({
-        transactionHash: element.transactionHash,
+      const allEventLogsProxy = await ProxyContract.getPastEvents("allEvents", {
+        fromBlock,
+        toBlock,
       });
-      if (seenTx) {
-        console.log(
-          `transaction already applied with tx hash ${element.transactionHash}`
-        );
-        continue;
-      }
-      switch (element.event) {
-        case "AuctionCreate":
-          let tokenContractAddress;
-          let tokenID;
-          let auctiontype;
-          for (item of allEventLogsProxy) {
-            if (
-              item.event == "AuctionCreateProxy" &&
-              item.returnValues.auction_type == "dutch" &&
-              item.transactionHash == element.transactionHash
-            ) {
-              console.log("Hi from Dutch");
-              tokenContractAddress = item.returnValues.tokenContractAddress;
-              tokenID = item.returnValues.tokenId;
-              auctiontype = item.returnValues.auction_type;
+      console.log("allEventLogsProxy Dutch", allEventLogsProxy);
+      console.log("allEventLogs", allEventLogs);
+      let promises = [];
+      for (element of allEventLogs) {
+        const seenTx = await seenTransactionModel.findOne({
+          transactionHash: element.transactionHash,
+        });
+        if (seenTx) {
+          console.log(
+            `transaction already applied with tx hash ${element.transactionHash}`
+          );
+          continue;
+        }
+        switch (element.event) {
+          case "AuctionCreate":
+            let tokenContractAddress;
+            let tokenID;
+            let auctiontype;
+            for (item of allEventLogsProxy) {
+              if (
+                item.event == "AuctionCreateProxy" &&
+                item.returnValues.auction_type == "dutch" &&
+                item.transactionHash == element.transactionHash
+              ) {
+                console.log("Hi from Dutch");
+                tokenContractAddress = item.returnValues.tokenContractAddress;
+                tokenID = item.returnValues.tokenId;
+                auctiontype = item.returnValues.auction_type;
+              }
             }
-          }
-          if (auctiontype == "dutch") {
+            if (auctiontype == "dutch") {
+              promises.push(
+                _createAuction(
+                  element.transactionHash,
+                  element,
+                  element.returnValues.auctionId,
+                  element.returnValues.auctionOwner,
+                  auctiontype,
+                  tokenID,
+                  tokenContractAddress,
+                  element.returnValues.startTime
+                )
+              );
+              break;
+            }
+          case "AuctionConfigure":
+            let openingPriceDecode = element.returnValues.openingPrice;
+            let reservePriceDecode = element.returnValues.reservePrice;
+            let startTimestamp = element.returnValues.startTime;
+            let dropAmount = element.returnValues.dropAmount;
+            let roundDuration = element.returnValues.roundDuration;
+            let auctionID = element.returnValues.auctionId;
             promises.push(
-              _createAuction(
-                element.transactionHash,
+              _configureAuction(
                 element,
-                element.returnValues.auctionId,
-                element.returnValues.auctionOwner,
-                auctiontype,
-                tokenID,
-                tokenContractAddress,
-                element.returnValues.startTime
+                auctionID,
+                openingPriceDecode,
+                roundDuration,
+                startTimestamp,
+                reservePriceDecode,
+                dropAmount
               )
             );
             break;
-          }
-        case "AuctionConfigure":
-          let openingPriceDecode = element.returnValues.openingPrice;
-          let reservePriceDecode = element.returnValues.reservePrice;
-          let startTimestamp = element.returnValues.startTime;
-          let dropAmount = element.returnValues.dropAmount;
-          let roundDuration = element.returnValues.roundDuration;
-          let auctionID = element.returnValues.auctionId;
-          promises.push(
-            _configureAuction(
-              element,
-              auctionID,
-              openingPriceDecode,
-              roundDuration,
-              startTimestamp,
-              reservePriceDecode,
-              dropAmount
-            )
-          );
-          break;
-        case "PriceAccept":
-          let AuctionId = element.returnValues.auctionId;
-          let winBid = element.returnValues.winningBid;
-          let auctionWinner = element.returnValues.winner;
-          promises.push(
-            _acceptPrice(element, AuctionId, winBid, auctionWinner)
-          );
+          case "PriceAccept":
+            let AuctionId = element.returnValues.auctionId;
+            let winBid = element.returnValues.winningBid;
+            let auctionWinner = element.returnValues.winner;
+            promises.push(
+              _acceptPrice(element, AuctionId, winBid, auctionWinner)
+            );
 
-          break;
-        case "AuctionCancel":
-          promises.push(_cancelAuction(element));
-        default:
-          break;
+            break;
+          case "AuctionCancel":
+            promises.push(_cancelAuction(element));
+          default:
+            break;
+        }
       }
+      await Promise.all(promises);
     }
-    await Promise.all(promises);
     const resp = await lastSeenBlocksModel.findOneAndUpdate(
       {},
       { blockNumberDutch: toBlock },
@@ -457,7 +461,7 @@ const scrapeDutchAuctionEventLogs = async function () {
 // Initialize scrapeDutchAuctionEventLogs
 const initScrapeDutchAuctionEventLogs = async function (lastSeenBlockRes) {
   try {
-    console.log("Initializing dutch auction event logs ...");
+    console.log("Initializing dutch contract event logs ...");
 
     const lastSeenBlock = lastSeenBlockRes.blockNumberDutch;
 
@@ -470,87 +474,90 @@ const initScrapeDutchAuctionEventLogs = async function (lastSeenBlockRes) {
     } else {
       toBlock = fromBlock;
     }
+    if (fromBlock <= toBlock) {
+      const allEventLogs = await DutchAuctionContract.getPastEvents(
+        "allEvents",
+        {
+          fromBlock,
+          toBlock,
+        }
+      );
 
-    const allEventLogs = await DutchAuctionContract.getPastEvents("allEvents", {
-      fromBlock,
-      toBlock,
-    });
-
-    const allEventLogsProxy = await ProxyContract.getPastEvents("allEvents", {
-      fromBlock,
-      toBlock,
-    });
-
-    console.log("allEventLogsProxy Dutch", allEventLogsProxy);
-    console.log("allEventLogs", allEventLogs);
-
-    for (element of allEventLogs) {
-      const seenTx = await seenTransactionModel.findOne({
-        transactionHash: element.transactionHash,
+      const allEventLogsProxy = await ProxyContract.getPastEvents("allEvents", {
+        fromBlock,
+        toBlock,
       });
-      if (seenTx) {
-        console.log(
-          `transaction already applied with tx hash ${element.transactionHash}`
-        );
-        continue;
-      }
-      switch (element.event) {
-        case "AuctionCreate":
-          let tokenContractAddress;
-          let tokenID;
-          let auctiontype;
-          for (item of allEventLogsProxy) {
-            if (
-              item.event == "AuctionCreateProxy" &&
-              item.returnValues.auction_type == "dutch" &&
-              item.transactionHash == element.transactionHash
-            ) {
-              console.log("Hi from Dutch");
-              tokenContractAddress = item.returnValues.tokenContractAddress;
-              tokenID = item.returnValues.tokenId;
-              auctiontype = item.returnValues.auction_type;
+
+      console.log("allEventLogsProxy Dutch", allEventLogsProxy);
+      console.log("allEventLogs", allEventLogs);
+
+      for (element of allEventLogs) {
+        const seenTx = await seenTransactionModel.findOne({
+          transactionHash: element.transactionHash,
+        });
+        if (seenTx) {
+          console.log(
+            `transaction already applied with tx hash ${element.transactionHash}`
+          );
+          continue;
+        }
+        switch (element.event) {
+          case "AuctionCreate":
+            let tokenContractAddress;
+            let tokenID;
+            let auctiontype;
+            for (item of allEventLogsProxy) {
+              if (
+                item.event == "AuctionCreateProxy" &&
+                item.returnValues.auction_type == "dutch" &&
+                item.transactionHash == element.transactionHash
+              ) {
+                tokenContractAddress = item.returnValues.tokenContractAddress;
+                tokenID = item.returnValues.tokenId;
+                auctiontype = item.returnValues.auction_type;
+              }
             }
-          }
-          if (auctiontype == "dutch") {
-            _createAuction(
-              element.transactionHash,
+            if (auctiontype == "dutch") {
+              _createAuction(
+                element.transactionHash,
+                element,
+                element.returnValues.auctionId,
+                element.returnValues.auctionOwner,
+                auctiontype,
+                tokenID,
+                tokenContractAddress,
+                element.returnValues.startTime
+              );
+              break;
+            }
+          case "AuctionConfigure":
+            let openingPriceDecode = element.returnValues.openingPrice;
+            let reservePriceDecode = element.returnValues.reservePrice;
+            let startTimestamp = element.returnValues.startTime;
+            let dropAmount = element.returnValues.dropAmount;
+            let roundDuration = element.returnValues.roundDuration;
+            let auctionID = element.returnValues.auctionId;
+            _configureAuction(
               element,
-              element.returnValues.auctionId,
-              element.returnValues.auctionOwner,
-              auctiontype,
-              tokenID,
-              tokenContractAddress,
-              element.returnValues.startTime
+              auctionID,
+              openingPriceDecode,
+              roundDuration,
+              startTimestamp,
+              reservePriceDecode,
+              dropAmount
             );
             break;
-          }
-        case "AuctionConfigure":
-          let openingPriceDecode = element.returnValues.openingPrice;
-          let reservePriceDecode = element.returnValues.reservePrice;
-          let startTimestamp = element.returnValues.startTime;
-          let dropAmount = element.returnValues.dropAmount;
-          let roundDuration = element.returnValues.roundDuration;
-          let auctionID = element.returnValues.auctionId;
-          _configureAuction(
-            element,
-            auctionID,
-            openingPriceDecode,
-            roundDuration,
-            startTimestamp,
-            reservePriceDecode,
-            dropAmount
-          );
-          break;
-        case "PriceAccept":
-          let AuctionId = element.returnValues.auctionId;
-          let winBid = element.returnValues.winningBid;
-          let auctionWinner = element.returnValues.winner;
-          _acceptPrice(element, AuctionId, winBid, auctionWinner)
-          break;
-        case "AuctionCancel":
-          _cancelAuction(element);
-        default:
-          break;
+          case "PriceAccept":
+            let AuctionId = element.returnValues.auctionId;
+            let winBid = element.returnValues.winningBid;
+            let auctionWinner = element.returnValues.winner;
+            _acceptPrice(element, AuctionId, winBid, auctionWinner);
+            break;
+          case "AuctionCancel":
+            _cancelAuction(element);
+          default:
+            break;
+        }
       }
     }
     const resp = await lastSeenBlocksModel.findOneAndUpdate(
@@ -562,7 +569,7 @@ const initScrapeDutchAuctionEventLogs = async function (lastSeenBlockRes) {
     initialised = true;
   } catch (error) {
     console.error(error);
-  } 
+  }
 };
 
 async function _createAuction(
@@ -575,8 +582,14 @@ async function _createAuction(
   tokenContractAddress,
   startTime
 ) {
+  console.log("### Create Dutch Auction ###");
+  const getAssetId = await assetsModel.findOne({
+    assetContractAddress: tokenContractAddress,
+    assetTokenId: tokenID,
+  });
   const dbAuction = new auctionModel({
     auctionId: auctionID,
+    asset_id: getAssetId._id,
     seller: auctionOwner,
     state: "NOT-STARTED",
     auctionType: auctiontype,
