@@ -3,28 +3,18 @@ const bodyParser = require("body-parser");
 const mongo = require("./db");
 const app = express();
 const { NETWORK_CONFIG, CONFIRMATION_COUNT } = require("./config");
-
 const last_seen_blocks = require("./models/last_seen_blocks");
-
+const nftContractModel = require("./models/NFT_contracts");
+const {seedDbEntriesNFT,seedDbEntriesLastSeenBlock } = require("./seeder");
 // parse requests of content-type - application/json
 app.use(bodyParser.json());
 // parse requests of content-type - application/x-www-form-urlencoded
 app.use(bodyParser.urlencoded({ extended: true }));
 
-async function seedDbEntries() {
-  const lastSeenBlockInstance = await last_seen_blocks.findOne();
-  if (!lastSeenBlockInstance) {
-    const lastSeenBlock = new last_seen_blocks({
-      blockNumberEnglish: NETWORK_CONFIG.START_BLOCK_ENGLISH,
-      blockNumberDutch: NETWORK_CONFIG.START_BLOCK_DUTCH,
-    });
-    await lastSeenBlock.save();
-  }
-}
 // set port, listen for requests, start cron
 const PORT = process.env.PORT || 3000;
 const { getHealth } = require("./health");
-const { scrapingJob } = require("./cron")
+const { scrapingJob } = require("./cron");
 const {
   EnglishCreateAuctionEventSubscription,
   EnglishConfigureAuctionEventSubscription,
@@ -32,7 +22,7 @@ const {
   EnglishAuctionCancelEventSubscription,
   EnglishAuctionEndEventSubscription,
   EnglishAuctionCompleteEventSubscription,
-  initScrapeEnglishAuctionEventLogs
+  initScrapeEnglishAuctionEventLogs,
 } = require("./services/EnglishAuctionEvents");
 
 const {
@@ -40,19 +30,22 @@ const {
   DutchConfigureAuctionEventSubscription,
   DutchAcceptPriceEventSubscription,
   DutchAuctionCancelEventSubscription,
-  initScrapeDutchAuctionEventLogs
+  initScrapeDutchAuctionEventLogs,
 } = require("./services/DutchAuctionEvents");
+
+const {
+  NftTransferEventSubscription,
+  initScrapeNftContractEventLogs,
+} = require("./services/NFTContractEvents");
 
 // initialize function to initialize the block indexer
 async function initialize() {
+  const NFTcontracts = await nftContractModel.find();
   const lastSeenBlockInstance = await last_seen_blocks.findOne();
-  if (!lastSeenBlockInstance) {
-      lastSeenBlockInstance = new last_seen_blocks({
-      blockNumberEnglish: NETWORK_CONFIG.START_BLOCK_ENGLISH,
-      blockNumberDutch: NETWORK_CONFIG.START_BLOCK_DUTCH,
-    });
-    await lastSeenBlockInstance.save();
-  }
+  await seedDbEntriesLastSeenBlock();
+  await seedDbEntriesNFT();
+
+  await initScrapeNftContractEventLogs(NFTcontracts);
   await initScrapeEnglishAuctionEventLogs(lastSeenBlockInstance);
   await initScrapeDutchAuctionEventLogs(lastSeenBlockInstance);
 }
@@ -68,12 +61,14 @@ async function eventSubscriptions() {
   await DutchConfigureAuctionEventSubscription();
   await DutchAcceptPriceEventSubscription();
   await DutchAuctionCancelEventSubscription();
+  await NftTransferEventSubscription();
 }
 
 app.listen(PORT, async () => {
   try {
     await mongo.connect();
-    await seedDbEntries();
+    await seedDbEntriesLastSeenBlock();
+    await seedDbEntriesNFT();
     await initialize();
     console.log(
       "\n\n\n\n******************************************************************************  " +
@@ -84,7 +79,7 @@ app.listen(PORT, async () => {
     const healthData = await getHealth();
     console.log("healthData", healthData);
 
-    if (CONFIRMATION_COUNT==0) {
+    if (CONFIRMATION_COUNT == 0) {
       await eventSubscriptions();
     }
 

@@ -1,6 +1,9 @@
 const mongoose = require("mongoose");
 
 const asset = new mongoose.Schema({
+  asset_id: {
+    type: Number,
+  },
   assetContractAddress: {
     type: String,
   },
@@ -42,6 +45,10 @@ const asset = new mongoose.Schema({
   },
   background_color: {
     type: String,
+  },
+  collection_id: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "collections",
   },
   NFTCollection: {
     type: String,
