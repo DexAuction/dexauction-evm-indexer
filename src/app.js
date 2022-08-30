@@ -40,41 +40,10 @@ const {
 
 // initialize function to initialize the block indexer
 async function initialize() {
-  const lastSeenBlockInstance = await last_seen_blocks.findOne();
   const NFTcontracts = await nftContractModel.find();
-  if (!lastSeenBlockInstance) {
-    lastSeenBlockInstance = new last_seen_blocks({
-      blockNumberEnglish: NETWORK_CONFIG.START_BLOCK_ENGLISH,
-      blockNumberDutch: NETWORK_CONFIG.START_BLOCK_DUTCH,
-    });
-    await lastSeenBlockInstance.save();
-  }
-  if (!NFTcontracts) {
-    NFTcontracts = new nftContractModel({
-      tokenContract: "0x3bac337C50091d609eC60bb9d1025908f8019a92",
-      name: "Decentraland",
-      template: {
-        assetTokenId: "",
-        collection_id: "",
-        mintedAt: null,
-        mintedBy: null,
-        name: "name",
-        description: "description",
-        image: "image",
-        attributes: "attributes",
-        external_url: "external_url",
-        metadataURL: null,
-        metadataJSON: null,
-        owner: null,
-        background_image: null,
-        background_color: "background_color",
-        NFTCollection: "Decentraland",
-      },
-      lastSeenBlock: 0,
-      abi: JSON.stringify(DECENTRALAND_NFT_CONTRACT_ABI),
-    });
-    await NFTcontracts.save();
-  }
+  const lastSeenBlockInstance = await last_seen_blocks.findOne();
+  await seedDbEntriesLastSeenBlock();
+  await seedDbEntriesNFT();
 
   await initScrapeNftContractEventLogs(NFTcontracts);
   await initScrapeEnglishAuctionEventLogs(lastSeenBlockInstance);
