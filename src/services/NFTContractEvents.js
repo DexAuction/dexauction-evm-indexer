@@ -6,7 +6,6 @@ const seenTransactionModel = require("../models/seenTransaction");
 const NFTContractsModel = require("../models/NFT_contracts");
 const { createAssetHelper } = require("../helper/utils");
 const req = require("express/lib/request");
-const { contentDisposition } = require("express/lib/utils");
 const NftTransferEventSubscription = async function () {
   await updateLastSyncedBlock();
 
@@ -85,13 +84,12 @@ const scrapeNftContractEventLogs = async function () {
     let promises = [];
 
     const nftContracts = await NFTContractsModel.find();
-
-    for (let i = 0; i < nftContracts.length; i++) {
+    for (item of nftContracts) {
       const NFTContractInstance = new web3.eth.Contract(
-        JSON.parse(nftContracts[i].abi),
-        nftContracts[i].tokenContract
+        JSON.parse(item.abi),
+        item.tokenContract
       );
-      const last_seen_block = nftContracts[i].lastSeenBlock;
+      const last_seen_block = item.lastSeenBlock;
       let from_Block = parseInt(last_seen_block) + 1 + "";
       let to_Block;
       const latestBlockNumber = await web3.eth.getBlockNumber();
@@ -134,7 +132,7 @@ const scrapeNftContractEventLogs = async function () {
                       element,
                       element.returnValues.tokenId,
                       element.returnValues.to,
-                      nftContracts[i],
+                      item,
                       NFTContractInstance
                     )
                   );
@@ -147,7 +145,7 @@ const scrapeNftContractEventLogs = async function () {
           }
         }
         const resp = await NFTContractsModel.findOneAndUpdate(
-          { tokenContract: nftContracts[i].tokenContract },
+          { tokenContract: item.tokenContract },
           {
             lastSeenBlock: to_Block,
           },
@@ -170,12 +168,12 @@ const initScrapeNftContractEventLogs = async function (nftContracts) {
   try {
     console.log("Initializing NFT contract event logs...");
     // Start from block next to the last seen block till the (latestBlock - CONFIRMATION_COUNT)
-    for (let i = 0; i < nftContracts.length; i++) {
+    for (item of nftContracts) {
       const NFTContractInstance = new web3.eth.Contract(
-        JSON.parse(nftContracts[i].abi),
-        nftContracts[i].tokenContract
+        JSON.parse(item.abi),
+        item.tokenContract
       );
-      const last_seen_block = nftContracts[i].lastSeenBlock;
+      const last_seen_block = item.lastSeenBlock;
       let from_Block = parseInt(last_seen_block) + 1 + "";
       let to_Block;
       const latestBlockNumber = await web3.eth.getBlockNumber();
@@ -214,7 +212,7 @@ const initScrapeNftContractEventLogs = async function (nftContracts) {
                   element,
                   element.returnValues.tokenId,
                   element.returnValues.to,
-                  nftContracts[i],
+                  item,
                   NFTContractInstance
                 );
               }
@@ -225,7 +223,7 @@ const initScrapeNftContractEventLogs = async function (nftContracts) {
           }
         }
         const resp = await NFTContractsModel.findOneAndUpdate(
-          { tokenContract: nftContracts[i].tokenContract },
+          { tokenContract: item.tokenContract },
           {
             lastSeenBlock: to_Block,
           },
@@ -254,7 +252,13 @@ async function _createAsset(
     state: "APPLIED",
   });
   await seentx.save();
-  createAssetHelper(EventLog, tokenId, assetOwner, NFTContract, NFTContractInstance);
+  createAssetHelper(
+    EventLog,
+    tokenId,
+    assetOwner,
+    NFTContract,
+    NFTContractInstance
+  );
 }
 
 module.exports = {
