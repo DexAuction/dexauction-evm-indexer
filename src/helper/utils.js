@@ -1,6 +1,6 @@
-const axios = require("axios");
-const assetModel = require("../models/asset");
-const collectionModel = require("../models/collections");
+const axios = require('axios');
+const assetModel = require('../models/asset');
+const collectionModel = require('../models/collections');
 
 async function createAssetHelper(
   Eventlog,
@@ -9,26 +9,27 @@ async function createAssetHelper(
   NFTContract,
   NFTContractInstance
 ) {
-  let getTokenURI;
-  getTokenURI = await NFTContractInstance.methods.tokenURI(assetTokenId).call();
+  const getTokenURI = await NFTContractInstance.methods
+    .tokenURI(assetTokenId)
+    .call();
   try {
     const getCollection = await collectionModel.findOne({
       contractAddress: Eventlog.address,
     });
-    console.log("##### Create Asset #######");
+    console.log('##### Create Asset #######');
     const resp = await axios.get(getTokenURI);
 
     const assetEntry = {
       assetContractAddress: Eventlog.address,
       collection_id: getCollection._id,
-      assetTokenId: assetTokenId,
-      mintedAt: "",
-      mintedBy: "",
-      name: "",
-      description: "",
-      image: "",
+      assetTokenId,
+      mintedAt: '',
+      mintedBy: '',
+      name: '',
+      description: '',
+      image: '',
       attributes: null,
-      external_url: "",
+      external_url: '',
       metadataURL: getTokenURI,
       metadataJSON: resp.data,
       owner: assetOwner,
@@ -36,16 +37,16 @@ async function createAssetHelper(
       background_color: null,
       NFTCollection: NFTContract.name,
     };
-    for (let [key, value] of Object.entries(NFTContract.template)) {
+    for (const [key, value] of Object.entries(NFTContract.template)) {
       if (value) {
         assetEntry[key] = resp.data[value];
       }
     }
-    assetEntry["NFTCollection"] = NFTContract.name;
+    assetEntry['NFTCollection'] = NFTContract.name;
 
-    assetEntry["asset_id"] = (await assetModel.countDocuments()) + 1;
-    const dbAsset = new assetModel(assetEntry);
-    await dbAsset.save();
+    assetEntry['asset_id'] = (await assetModel.countDocuments()) + 1;
+    const DbAsset = new assetModel(assetEntry);
+    await DbAsset.save();
   } catch (err) {
     console.error(err);
   }

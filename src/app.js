@@ -1,11 +1,12 @@
-const express = require("express");
-const bodyParser = require("body-parser");
-const mongo = require("./db");
+const express = require('express');
+const bodyParser = require('body-parser');
+const mongo = require('./db');
+
 const app = express();
-const { NETWORK_CONFIG, CONFIRMATION_COUNT } = require("./config");
-const last_seen_blocks = require("./models/last_seen_blocks");
-const nftContractModel = require("./models/NFT_contracts");
-const {seedDbEntriesNFT,seedDbEntriesLastSeenBlock } = require("./seeder");
+const {CONFIRMATION_COUNT } = require('./config');
+const lastSeenBlock = require('./models/last_seen_blocks');
+const nftContractModel = require('./models/NFT_contracts');
+const { seedDbEntriesNFT, seedDbEntriesLastSeenBlock } = require('./seeder');
 // parse requests of content-type - application/json
 app.use(bodyParser.json());
 // parse requests of content-type - application/x-www-form-urlencoded
@@ -13,8 +14,8 @@ app.use(bodyParser.urlencoded({ extended: true }));
 
 // set port, listen for requests, start cron
 const PORT = process.env.PORT || 3000;
-const { getHealth } = require("./health");
-const { scrapingJob } = require("./cron");
+const { getHealth } = require('./health');
+const { scrapingJob } = require('./cron');
 const {
   EnglishCreateAuctionEventSubscription,
   EnglishConfigureAuctionEventSubscription,
@@ -23,7 +24,7 @@ const {
   EnglishAuctionEndEventSubscription,
   EnglishAuctionCompleteEventSubscription,
   initScrapeEnglishAuctionEventLogs,
-} = require("./services/EnglishAuctionEvents");
+} = require('./services/EnglishAuctionEvents');
 
 const {
   DutchCreateAuctionEventSubscription,
@@ -31,17 +32,17 @@ const {
   DutchAcceptPriceEventSubscription,
   DutchAuctionCancelEventSubscription,
   initScrapeDutchAuctionEventLogs,
-} = require("./services/DutchAuctionEvents");
+} = require('./services/DutchAuctionEvents');
 
 const {
   NftTransferEventSubscription,
   initScrapeNftContractEventLogs,
-} = require("./services/NFTContractEvents");
+} = require('./services/NFTContractEvents');
 
 // initialize function to initialize the block indexer
 async function initialize() {
   const NFTcontracts = await nftContractModel.find();
-  const lastSeenBlockInstance = await last_seen_blocks.findOne();
+  const lastSeenBlockInstance = await lastSeenBlock.findOne();
   await seedDbEntriesLastSeenBlock();
   await seedDbEntriesNFT();
 
@@ -71,21 +72,19 @@ app.listen(PORT, async () => {
     await seedDbEntriesNFT();
     await initialize();
     console.log(
-      "\n\n\n\n******************************************************************************  " +
-        "Server is running on port " +
-        PORT +
-        "  ******************************************************************************\n\n"
+      `${'\n\n\n\n******************************************************************************  ' +
+        'Server is running on port '}${PORT}  ******************************************************************************\n\n`
     );
     const healthData = await getHealth();
-    console.log("healthData", healthData);
+    console.log('healthData', healthData);
 
-    if (CONFIRMATION_COUNT == 0) {
+    if (CONFIRMATION_COUNT === 0) {
       await eventSubscriptions();
     }
 
     scrapingJob.start();
   } catch (error) {
-    console.log("An error occurred during startup: ", error);
+    console.log('An error occurred during startup: ', error);
     await mongo.close();
     process.exit(1);
   }

@@ -1,7 +1,7 @@
 let NETWORK_CONFIG;
 const TEST_NETWORK_PARAMS = {
-  START_BLOCK_ENGLISH: "0",
-  START_BLOCK_DUTCH: "0",
+  START_BLOCK_ENGLISH: '0',
+  START_BLOCK_DUTCH: '0',
   HTTP_NETWORK_URL: process.env.HTTP_NETWORK_URL,
   WS_NETWORK_URL: process.env.WS_NETWORK_URL,
   DECENTRALAND_NFT_CONTRACT_ADDRESS:
@@ -12,8 +12,8 @@ const TEST_NETWORK_PARAMS = {
   DUTCH_CONTRACT_ADDRESS: process.env.DUTCH_CONTRACT_ADDRESS,
 };
 const LOCAL_NETWORK_PARAMS = {
-  START_BLOCK_ENGLISH: "0",
-  START_BLOCK_DUTCH: "0",
+  START_BLOCK_ENGLISH: '0',
+  START_BLOCK_DUTCH: '0',
   HTTP_NETWORK_URL: process.env.HTTP_NETWORK_URL,
   WS_NETWORK_URL: process.env.WS_NETWORK_URL,
   DECENTRALAND_NFT_CONTRACT_ADDRESS:
@@ -24,8 +24,8 @@ const LOCAL_NETWORK_PARAMS = {
   DUTCH_CONTRACT_ADDRESS: process.env.DUTCH_CONTRACT_ADDRESS,
 };
 const MAIN_NETWORK_PARAMS = {
-  START_BLOCK_ENGLISH: "0",
-  START_BLOCK_DUTCH: "0",
+  START_BLOCK_ENGLISH: '0',
+  START_BLOCK_DUTCH: '0',
   HTTP_NETWORK_URL: process.env.HTTP_NETWORK_URL,
   WS_NETWORK_URL: process.env.WS_NETWORK_URL,
   DECENTRALAND_NFT_CONTRACT_ADDRESS:
@@ -36,22 +36,22 @@ const MAIN_NETWORK_PARAMS = {
   DUTCH_CONTRACT_ADDRESS: process.env.DUTCH_CONTRACT_ADDRESS,
 };
 
-const NETWORK = process.env.NETWORK || "testnet";
-if (NETWORK === "testnet") {
-  console.log("Running on testnet");
+const NETWORK = process.env.NETWORK || 'testnet';
+if (NETWORK === 'testnet') {
+  console.log('Running on testnet');
   NETWORK_CONFIG = TEST_NETWORK_PARAMS;
-} else if (NETWORK === "mainnet") {
-  console.log("Running on mainnet");
+} else if (NETWORK === 'mainnet') {
+  console.log('Running on mainnet');
   NETWORK_CONFIG = MAIN_NETWORK_PARAMS;
-} else if (NETWORK === "local") {
-  console.log("Running on local");
+} else if (NETWORK === 'local') {
+  console.log('Running on local');
   NETWORK_CONFIG = LOCAL_NETWORK_PARAMS;
 } else {
-  throw new Error("Unrecognized network");
+  throw new Error('Unrecognized network');
 }
 
 module.exports = {
-  NODE_ENV: process.env.NODE_ENV || "development",
+  NODE_ENV: process.env.NODE_ENV || 'development',
   CONFIRMATION_COUNT: process.env.CONFIRMATION_COUNT || 10,
   NETWORK_CONFIG,
   LAST_SYNCED_BLOCK: 0,

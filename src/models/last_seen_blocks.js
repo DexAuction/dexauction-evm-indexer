@@ -1,4 +1,4 @@
-const mongoose = require("mongoose");
+const mongoose = require('mongoose');
 
 const last_seen_blocks = new mongoose.Schema({
   blockNumberEnglish: {
@@ -8,8 +8,8 @@ const last_seen_blocks = new mongoose.Schema({
   blockNumberDutch: {
     type: String,
     required: true,
-  }
+  },
 });
-last_seen_blocks.set("timestamps", true);
+last_seen_blocks.set('timestamps', true);
 
-module.exports = mongoose.model("last_seen_blocks", last_seen_blocks);
+module.exports = mongoose.model('last_seen_blocks', last_seen_blocks);

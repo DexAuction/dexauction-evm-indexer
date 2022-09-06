@@ -1,4 +1,4 @@
-const mongoose = require("mongoose");
+const mongoose = require('mongoose');
 
 const asset = new mongoose.Schema({
   asset_id: {
@@ -48,11 +48,11 @@ const asset = new mongoose.Schema({
   },
   collection_id: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: "collections",
+    ref: 'collections',
   },
   NFTCollection: {
     type: String,
   },
 });
 
-module.exports = mongoose.model("assets", asset);
+module.exports = mongoose.model('assets', asset);

@@ -1,17 +1,17 @@
-const mongoose = require("mongoose");
+const mongoose = require('mongoose');
 
 const auction = new mongoose.Schema({
   auctionId: {
     type: Number,
     unique: true,
   },
-  asset_id:{
+  asset_id: {
     type: mongoose.Schema.Types.ObjectId,
-    ref:'assets'
+    ref: 'assets',
   },
   auctionType: {
     type: String,
-    enum: ["fpl", "dutch", "english", "sealed-bid", "vickery"],
+    enum: ['fpl', 'dutch', 'english', 'sealed-bid', 'vickery'],
   },
   tokenContract: {
     type: String,
@@ -31,11 +31,11 @@ const auction = new mongoose.Schema({
   state: {
     type: String,
     enum: [
-      "NOT-STARTED",
-      "ONGOING",
-      "SUCCESSFULLY-COMPLETED",
-      "CANCELLED",
-      "EXPIRED",
+      'NOT-STARTED',
+      'ONGOING',
+      'SUCCESSFULLY-COMPLETED',
+      'CANCELLED',
+      'EXPIRED',
     ],
   },
   englishAuctionAttribute: {
@@ -67,4 +67,4 @@ const auction = new mongoose.Schema({
   },
 });
 
-module.exports = mongoose.model("auctions", auction);
+module.exports = mongoose.model('auctions', auction);

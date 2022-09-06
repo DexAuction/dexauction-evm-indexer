@@ -1,6 +1,6 @@
-const mongoose = require("mongoose");
+const mongoose = require('mongoose');
 
-//manual entry in this table
+// manual entry in this table
 const NFT_contracts = new mongoose.Schema({
   tokenContract: {
     type: String,
@@ -21,4 +21,4 @@ const NFT_contracts = new mongoose.Schema({
   },
 });
 
-module.exports = mongoose.model("NFT_contracts", NFT_contracts);
+module.exports = mongoose.model('NFT_contracts', NFT_contracts);
