@@ -23,6 +23,7 @@ const NftTransferEventSubscription = async function () {
     },
 
     async function (err, result) {
+      
       const nftContracts = await NFTContractsModel.find();
       const found = nftContracts.filter(function (item) {
         return item.tokenContract === result.address;

@@ -4,6 +4,9 @@ const asset = new mongoose.Schema({
   asset_id: {
     type: Number,
   },
+  status: {
+    type: String,
+  },
   assetContractAddress: {
     type: String,
   },
@@ -48,11 +51,11 @@ const asset = new mongoose.Schema({
   },
   collection_id: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: "collections",
+    ref: 'collections',
   },
   NFTCollection: {
     type: String,
   },
 });
 
-module.exports = mongoose.model("assets", asset);
+module.exports = mongoose.model('assets', asset);

@@ -1,6 +1,7 @@
 const axios = require("axios");
 const assetModel = require("../models/asset");
 const collectionModel = require("../models/collections");
+const {DEFAULT_ASSET_STATUS} = require("../constants")
 
 async function createAssetHelper(
   Eventlog,
@@ -22,6 +23,7 @@ async function createAssetHelper(
       assetContractAddress: Eventlog.address,
       collection_id: getCollection._id,
       assetTokenId: assetTokenId,
+      status:DEFAULT_ASSET_STATUS,
       mintedAt: "",
       mintedBy: "",
       name: "",
