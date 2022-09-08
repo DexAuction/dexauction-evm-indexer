@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const {DEFAULT_ASSET_STATUS,ON_SALE_ASSET_STATUS} = require("../constants")
 
 const asset = new mongoose.Schema({
   asset_id: {
@@ -6,6 +7,7 @@ const asset = new mongoose.Schema({
   },
   status: {
     type: String,
+    enum: [DEFAULT_ASSET_STATUS,ON_SALE_ASSET_STATUS],
   },
   assetContractAddress: {
     type: String,
