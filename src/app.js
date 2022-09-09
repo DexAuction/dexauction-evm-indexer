@@ -3,7 +3,7 @@ const bodyParser = require('body-parser');
 const mongo = require('./db');
 
 const app = express();
-const {CONFIRMATION_COUNT } = require('./config');
+const { CONFIRMATION_COUNT } = require('./config');
 const lastSeenBlock = require('./models/last_seen_blocks');
 const nftContractModel = require('./models/NFT_contracts');
 const { seedDbEntriesNFT, seedDbEntriesLastSeenBlock } = require('./seeder');

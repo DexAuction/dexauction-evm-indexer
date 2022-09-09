@@ -1,13 +1,7 @@
-<<<<<<< HEAD
 const axios = require('axios');
 const assetModel = require('../models/asset');
 const collectionModel = require('../models/collections');
-=======
-const axios = require("axios");
-const assetModel = require("../models/asset");
-const collectionModel = require("../models/collections");
-const {DEFAULT_ASSET_STATUS} = require("../constants")
->>>>>>> 1c762b4eaa2e7e2add974cd9db14ae3f69de0b93
+const { DEFAULT_ASSET_STATUS } = require('../constants');
 
 async function createAssetHelper(
   Eventlog,
@@ -29,13 +23,13 @@ async function createAssetHelper(
     const assetEntry = {
       assetContractAddress: Eventlog.address,
       collection_id: getCollection._id,
-      assetTokenId: assetTokenId,
-      status:DEFAULT_ASSET_STATUS,
-      mintedAt: "",
-      mintedBy: "",
-      name: "",
-      description: "",
-      image: "",
+      assetTokenId,
+      status: DEFAULT_ASSET_STATUS,
+      mintedAt: '',
+      mintedBy: '',
+      name: '',
+      description: '',
+      image: '',
       attributes: null,
       external_url: '',
       metadataURL: getTokenURI,
