@@ -119,11 +119,6 @@ module.exports = [
 	{
 		"inputs": [
 			{
-				"internalType": "uint256",
-				"name": "auctionId",
-				"type": "uint256"
-			},
-			{
 				"internalType": "string",
 				"name": "_auction_type",
 				"type": "string"
