@@ -283,6 +283,8 @@ const EnglishPlaceBidEventSubscription = async function () {
                 {
                   address: bidder,
                   bid: Bid,
+                  bid_timestamp: new Date().toISOString(),
+                  txHash: result.transactionHash
                 },
               ],
               bidders: bidder,
@@ -795,6 +797,8 @@ async function _placeBid(element, auctionId, bidder, Bid) {
           {
             address: bidder,
             bid: Bid,
+            bid_timestamp: new Date().toISOString(),
+            txHash: element.transactionHash
           },
         ],
         bidders: bidder,

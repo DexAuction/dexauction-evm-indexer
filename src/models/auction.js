@@ -53,6 +53,8 @@ const auction = new mongoose.Schema({
       {
         address: String,
         bid: Number,
+        bid_timestamp: String,
+        txHash : String
       },
     ],
   },
