@@ -7,6 +7,8 @@ const lastSeenBlocksModel = require("../models/last_seen_blocks");
 const seenTransactionModel = require("../models/seenTransaction");
 const { DUTCH_CONTRACT_ABI, PROXY_AUCTION_ABI } = require("../abi");
 const res = require("express/lib/response");
+const { LIST, TRANSFER, CANCEL_LIST } = require('../constants');
+const assetHistoryModel = require('../models/history_assets');
 
 const DutchAuctionContract = new web3.eth.Contract(
   DUTCH_CONTRACT_ABI,
@@ -184,28 +186,15 @@ const DutchConfigureAuctionEventSubscription = async function () {
           roundDurationHex
         );
 
-        await auctionModel.updateOne(
-          { auctionId: auctionID },
-          {
-            dutchAuctionAttribute: {
-              opening_price: openingPriceDecode,
-              round_duration: roundDurationDecode,
-              start_timestamp: startTimeDecode * 1000,
-              start_datetime: new Date(startTimeDecode * 1000),
-              reserve_price: reservePriceDecode,
-              drop_amount: dropAmountDecode,
-              winningBid: 0,
-            },
-            state: "ONGOING",
-          }
-        );
-        const seentx = new seenTransactionModel({
-          transactionHash: result.transactionHash,
-          blockNumber: result.blockNumber,
-          eventLog: result,
-          state: "APPLIED",
-        });
-        await seentx.save();
+       await _configureAuction(
+          result,
+          auctionID,
+          openingPriceDecode,
+          roundDurationDecode,
+          startTimeDecode,
+          reservePriceDecode,
+          dropAmountDecode
+        )
       }
     }
   );
@@ -248,21 +237,8 @@ const DutchAcceptPriceEventSubscription = async function () {
           "address",
           result.topics[3]
         );
-        await auctionModel.updateMany(
-          { auctionId: auctionID },
-          {
-            $set: { "dutchAuctionAttribute.winning_bid": winningBid },
-            buyer: auctionWinner,
-            state: "SUCCESSFULLY-COMPLETED",
-          }
-        );
-        const seentx = new seenTransactionModel({
-          transactionHash: result.transactionHash,
-          blockNumber: result.blockNumber,
-          eventLog: result,
-          state: "APPLIED",
-        });
-        await seentx.save();
+
+       await _acceptPrice(result, auctionID, winningBid, auctionWinner)
         console.log("syncedBlock bid", config.LAST_SYNCED_BLOCK);
       }
     }
@@ -299,20 +275,7 @@ const DutchAuctionCancelEventSubscription = async function () {
           result.topics[1]
         );
 
-        await auctionModel.updateMany(
-          { auctionId: auctionID },
-          {
-            $set: { "dutchAuctionAttribute.winning_bid": 0 },
-            state: "CANCELLED",
-          }
-        );
-        const seentx = new seenTransactionModel({
-          transactionHash: result.transactionHash,
-          blockNumber: result.blockNumber,
-          eventLog: result,
-          state: "APPLIED",
-        });
-        await seentx.save();
+         await _cancelAuction(element,auctionID);
         console.log("syncedBlock Cancel 1", config.LAST_SYNCED_BLOCK);
       }
     }
@@ -388,7 +351,6 @@ const scrapeDutchAuctionEventLogs = async function () {
                 item.returnValues.auction_type == "dutch" &&
                 item.transactionHash == element.transactionHash
               ) {
-                console.log("Hi from Dutch");
                 tokenContractAddress = item.returnValues.tokenContractAddress;
                 tokenID = item.returnValues.tokenId;
                 auctiontype = item.returnValues.auction_type;
@@ -438,7 +400,8 @@ const scrapeDutchAuctionEventLogs = async function () {
 
             break;
           case "AuctionCancel":
-            promises.push(_cancelAuction(element));
+            let auctionId = element.returnValues.auctionId;
+            promises.push(_cancelAuction(element,auctionId));
           default:
             break;
         }
@@ -554,7 +517,8 @@ const initScrapeDutchAuctionEventLogs = async function (lastSeenBlockRes) {
             _acceptPrice(element, AuctionId, winBid, auctionWinner);
             break;
           case "AuctionCancel":
-            _cancelAuction(element);
+            let auctionId = element.returnValues.auctionId;
+            _cancelAuction(element,auctionId);
           default:
             break;
         }
@@ -640,6 +604,38 @@ async function _configureAuction(
       state: "ONGOING",
     }
   );
+
+  const dbAuction = await auctionModel.findOne({ auctionId: auctionID });
+  const dbAsset = await assetsModel.findById(dbAuction.asset_id);
+  const dbAssetHistory = await assetHistoryModel.findOne({
+    asset_id: dbAsset.asset_id,
+  });
+  if (dbAssetHistory) {
+    await dbAssetHistory.update({
+      $push: {
+        'history': [
+          {
+            event: LIST,
+            event_date: dbAuction.createdAt.toLocaleDateString(),
+            event_time: dbAuction.createdAt.toLocaleTimeString([], {
+              hour: '2-digit',
+              minute: '2-digit',
+            }),
+            price: dbAuction.dutchAuctionAttribute.opening_price,
+            from: dbAuction.seller,
+            actions: config.POLYGON_EXPLORER + '/' + element.transactionHash,
+          },
+        ],
+      },
+    });
+    console.log('### List Dutch Asset history in asset history table ###');
+  }
+  else{
+    console.log("asset not minted yet..",dbAsset.asset_id);
+  }
+  await dbAssetHistory.save();
+
+
   const seentxConfigure = new seenTransactionModel({
     transactionHash: element.transactionHash,
     blockNumber: element.blockNumber,
@@ -657,6 +653,44 @@ async function _acceptPrice(element, AuctionId, winBid, auctionWinner) {
       state: "SUCCESSFULLY-COMPLETED",
     }
   );
+
+  //change owner in asset schema
+  const dbAuction = await auctionModel.findOne({auctionId:AuctionId});
+  const assetObject = dbAuction.asset_id;
+  const dbAsset = await assetsModel.findById(assetObject);
+  await assetsModel.updateOne({asset_id:dbAsset.asset_id},{owner:auctionWinner});
+
+  //make entry in asset history
+  const dbAssetHistory = await assetHistoryModel.findOne({
+    asset_id: dbAsset.asset_id,
+  });
+  if (dbAssetHistory) {
+    await dbAssetHistory.update({
+      $push: {
+        'history': [
+          {
+            event: TRANSFER,
+            event_date: dbAuction.createdAt.toLocaleDateString(),
+            event_time: dbAuction.createdAt.toLocaleTimeString([], {
+              hour: '2-digit',
+              minute: '2-digit',
+            }),
+            price: winBid,
+            from: dbAuction.seller,
+            to: auctionWinner,
+            actions: config.POLYGON_EXPLORER + '/' + element.transactionHash,
+          },
+        ],
+      },
+    });
+    console.log('### Transfer Dutch Asset history in asset history table ###');
+  }
+  else{
+    console.log("asset not minted yet..",dbAsset.asset_id);
+  }
+  await dbAssetHistory.save();
+
+
   const seentxPriceAccept = new seenTransactionModel({
     transactionHash: element.transactionHash,
     blockNumber: element.blockNumber,
@@ -666,13 +700,46 @@ async function _acceptPrice(element, AuctionId, winBid, auctionWinner) {
   await seentxPriceAccept.save();
 }
 
-async function _cancelAuction(element) {
+async function _cancelAuction(element,auctionId) {
   await auctionModel.updateOne(
-    { auctionId: element.returnValues.auctionId },
+    { auctionId: auctionId },
     {
+      $set: { "dutchAuctionAttribute.winning_bid": 0 },
       state: "CANCELLED",
     }
   );
+    //make entry in asset history
+  const dbAuction = await auctionModel.findOne({auctionId:auctionId});
+  const assetObject = dbAuction.asset_id;
+  const dbAsset = await assetsModel.findById(assetObject);
+
+  const dbAssetHistory = await assetHistoryModel.findOne({
+    asset_id: dbAsset.asset_id,
+  });
+  if (dbAssetHistory) {
+    await dbAssetHistory.update({
+      $push: {
+        'history': [
+          {
+            event: CANCEL_LIST,
+            event_date: dbAuction.createdAt.toLocaleDateString(),
+            event_time: dbAuction.createdAt.toLocaleTimeString([], {
+              hour: '2-digit',
+              minute: '2-digit',
+            }),
+            price: dbAuction.dutchAuctionAttribute.opening_price,
+            from: dbAuction.seller,
+            actions: config.POLYGON_EXPLORER + '/' + element.transactionHash,
+          },
+        ],
+      },
+    });
+    console.log('### cancel List Dutch Asset history in asset history table ###');
+  }
+  else{
+    console.log("asset not minted yet..",dbAsset.asset_id);
+  }
+  await dbAssetHistory.save();
   const seentxCancel = new seenTransactionModel({
     transactionHash: element.transactionHash,
     blockNumber: element.blockNumber,

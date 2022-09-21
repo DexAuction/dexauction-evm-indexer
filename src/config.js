@@ -49,10 +49,10 @@ if (NETWORK === "testnet") {
 } else {
   throw new Error("Unrecognized network");
 }
-
 module.exports = {
   NODE_ENV: process.env.NODE_ENV || "development",
   CONFIRMATION_COUNT: process.env.CONFIRMATION_COUNT || 10,
   NETWORK_CONFIG,
   LAST_SYNCED_BLOCK: 0,
+  POLYGON_EXPLORER: process.env.POLYGON_EXPLORER
 };

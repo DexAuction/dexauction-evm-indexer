@@ -59,5 +59,5 @@ const asset = new mongoose.Schema({
     type: String,
   },
 });
-
+asset.set("timestamps", true);
 module.exports = mongoose.model('assets', asset);
