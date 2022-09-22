@@ -2,6 +2,19 @@ module.exports = [
 	{
 		"inputs": [
 			{
+				"internalType": "uint256",
+				"name": "auctionId",
+				"type": "uint256"
+			}
+		],
+		"name": "acceptPrice",
+		"outputs": [],
+		"stateMutability": "payable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
 				"internalType": "address",
 				"name": "_proxyContract",
 				"type": "address"
@@ -123,6 +136,75 @@ module.exports = [
 		"type": "event"
 	},
 	{
+		"inputs": [
+			{
+				"internalType": "uint256",
+				"name": "auctionId",
+				"type": "uint256"
+			}
+		],
+		"name": "cancelAuction",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "uint256",
+				"name": "auctionId",
+				"type": "uint256"
+			},
+			{
+				"internalType": "uint256",
+				"name": "startTime",
+				"type": "uint256"
+			},
+			{
+				"internalType": "uint256",
+				"name": "reservePrice",
+				"type": "uint256"
+			},
+			{
+				"internalType": "uint256",
+				"name": "dropAmount",
+				"type": "uint256"
+			},
+			{
+				"internalType": "uint256",
+				"name": "openingPrice",
+				"type": "uint256"
+			},
+			{
+				"internalType": "uint256",
+				"name": "roundDuration",
+				"type": "uint256"
+			}
+		],
+		"name": "configureAuction",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "uint256",
+				"name": "auctionId",
+				"type": "uint256"
+			},
+			{
+				"internalType": "address payable",
+				"name": "auctionOwner",
+				"type": "address"
+			}
+		],
+		"name": "createAuction",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
 		"anonymous": false,
 		"inputs": [
 			{
@@ -146,19 +228,6 @@ module.exports = [
 		],
 		"name": "PriceAccept",
 		"type": "event"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "uint256",
-				"name": "auctionId",
-				"type": "uint256"
-			}
-		],
-		"name": "acceptPrice",
-		"outputs": [],
-		"stateMutability": "payable",
-		"type": "function"
 	},
 	{
 		"inputs": [
@@ -232,65 +301,15 @@ module.exports = [
 				"type": "uint256"
 			}
 		],
-		"name": "cancelAuction",
-		"outputs": [],
-		"stateMutability": "nonpayable",
-		"type": "function"
-	},
-	{
-		"inputs": [
+		"name": "currentPrice",
+		"outputs": [
 			{
 				"internalType": "uint256",
-				"name": "auctionId",
-				"type": "uint256"
-			},
-			{
-				"internalType": "uint256",
-				"name": "startTime",
-				"type": "uint256"
-			},
-			{
-				"internalType": "uint256",
-				"name": "reservePrice",
-				"type": "uint256"
-			},
-			{
-				"internalType": "uint256",
-				"name": "dropAmount",
-				"type": "uint256"
-			},
-			{
-				"internalType": "uint256",
-				"name": "openingPrice",
-				"type": "uint256"
-			},
-			{
-				"internalType": "uint256",
-				"name": "roundDuration",
+				"name": "",
 				"type": "uint256"
 			}
 		],
-		"name": "configureAuction",
-		"outputs": [],
-		"stateMutability": "nonpayable",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "uint256",
-				"name": "auctionId",
-				"type": "uint256"
-			},
-			{
-				"internalType": "address payable",
-				"name": "auctionOwner",
-				"type": "address"
-			}
-		],
-		"name": "createAuction",
-		"outputs": [],
-		"stateMutability": "nonpayable",
+		"stateMutability": "view",
 		"type": "function"
 	},
 	{

@@ -2,11 +2,14 @@ const res = require("express/lib/response");
 const Web3 = require("web3");
 const config = require("../config");
 const web3 = new Web3(config.NETWORK_CONFIG.WS_NETWORK_URL);
-const auctionModel = require("../models/auction");
-const lastSeenBlocksModel = require("../models/last_seen_blocks");
-const seenTransactionModel = require("../models/seenTransaction");
-const assetsModel = require("../models/asset");
-const { ENGLISH_AUCTION_ABI, PROXY_AUCTION_ABI } = require("../abi");
+const auctionModel = require('../models/auction');
+const lastSeenBlocksModel = require('../models/last_seen_blocks');
+const seenTransactionModel = require('../models/seenTransaction');
+const assetsModel = require('../models/asset');
+const { ENGLISH_AUCTION_ABI, PROXY_AUCTION_ABI } = require('../abi');
+const assetHistoryModel = require('../models/history_assets');
+const { LIST,TRANSFER,CANCEL_LIST } = require('../constants');
+
 const EnglishAuctionContract = new web3.eth.Contract(
   ENGLISH_AUCTION_ABI,
   config.NETWORK_CONFIG.ENGLISH_AUCTION_ADDRESS
@@ -208,31 +211,16 @@ const EnglishConfigureAuctionEventSubscription = async function () {
           "uint256",
           minIncrementinHex
         );
-
-        await auctionModel.updateOne(
-          { auctionId: auctionID },
-          {
-            englishAuctionAttribute: {
-              opening_price: openingPriceDecode,
-              min_increment: minIncrementDecode,
-              start_timestamp: startTimeDecode * 1000,
-              end_timestamp: endTimeDecode * 1000,
-              start_datetime: new Date(startTimeDecode * 1000),
-              end_datetime: new Date(endTimeDecode * 1000),
-              soft_close_duration: softCloseDuratioDecode,
-              buyout_price: buyOutPriceDecode,
-              winning_bid: 0,
-            },
-            state: "ONGOING",
-          }
+        _configureAuction(
+          result,
+          auctionID,
+          openingPriceDecode,
+          startTimeDecode,
+          endTimeDecode,
+          minIncrementDecode,
+          softCloseDuratioDecode,
+          buyOutPriceDecode
         );
-        const seentx = new seenTransactionModel({
-          transactionHash: result.transactionHash,
-          blockNumber: result.blockNumber,
-          eventLog: result,
-          state: "APPLIED",
-        });
-        await seentx.save();
       }
     }
   );
@@ -275,29 +263,7 @@ const EnglishPlaceBidEventSubscription = async function () {
           result.topics[3]
         );
 
-        await auctionModel.updateMany(
-          { auctionId: auctionID },
-          {
-            $push: {
-              "englishAuctionAttribute.bids": [
-                {
-                  address: bidder,
-                  bid: Bid,
-                  bid_timestamp: new Date().toISOString(),
-                  txHash: result.transactionHash
-                },
-              ],
-              bidders: bidder,
-            },
-          }
-        );
-        const seentx = new seenTransactionModel({
-          transactionHash: result.transactionHash,
-          blockNumber: result.blockNumber,
-          eventLog: result,
-          state: "APPLIED",
-        });
-        await seentx.save();
+         await _placeBid(result, auctionID, bidder, Bid) ;
         console.log("syncedBlock bid", config.LAST_SYNCED_BLOCK);
       }
     }
@@ -365,19 +331,7 @@ const EnglishAuctionCancelEventSubscription = async function () {
           result.topics[1]
         );
 
-        await auctionModel.updateOne(
-          { auctionId: auctionID },
-          {
-            state: "CANCELLED",
-          }
-        );
-        const seentx = new seenTransactionModel({
-          transactionHash: result.transactionHash,
-          blockNumber: result.blockNumber,
-          eventLog: result,
-          state: "APPLIED",
-        });
-        await seentx.save();
+        await _cancelAuction(result,auctionID);
         console.log("syncedBlock Cancel 1", config.LAST_SYNCED_BLOCK);
       }
     }
@@ -421,21 +375,7 @@ const EnglishAuctionCompleteEventSubscription = async function () {
         );
         winningBid = web3.eth.abi.decodeParameter("uint256", result.topics[3]);
 
-        await auctionModel.updateMany(
-          { auctionId: auctionID },
-          {
-            $set: { "englishAuctionAttribute.winning_bid": winningBid },
-            buyer: auctionWinner,
-            state: "SUCCESSFULLY-COMPLETED",
-          }
-        );
-        const seentx = new seenTransactionModel({
-          transactionHash: result.transactionHash,
-          blockNumber: result.blockNumber,
-          eventLog: result,
-          state: "APPLIED",
-        });
-        await seentx.save();
+        await _auctionComplete(result,auctionID,winningBid,auctionWinner) 
         console.log("syncedBlock complete ", config.LAST_SYNCED_BLOCK);
       }
     }
@@ -489,8 +429,8 @@ const scrapeEnglishAuctionEventLogs = async function () {
         fromBlock,
         toBlock,
       });
-      console.log("allEventLogsProxy English", allEventLogsProxy);
-      console.log("allEventLogs", allEventLogs);
+      console.log('allEventLogsProxy English', allEventLogsProxy);
+      console.log('allEventLogs', allEventLogs);
       let promises = [];
       for (element of allEventLogs) {
         const seenTx = await seenTransactionModel.findOne({
@@ -561,10 +501,15 @@ const scrapeEnglishAuctionEventLogs = async function () {
             promises.push(_placeBid(element, AuctionId, bidder, Bid));
             break;
           case "AuctionComplete":
-            promises.push(_auctionComplete(element));
+            let auctionId_= element.returnValues.auctionID
+            let winningBid = element.returnValues.winningBid
+            let winner = element.returnValues.winner
+
+            promises.push(_auctionComplete(element,auctionId_,winningBid,winner));
             break;
           case "AuctionCancel":
-            promises.push(_cancelAuction(element));
+            let auctionID = element.returnValues.auctionID;
+            promises.push(_cancelAuction(element,auctionID));
           default:
             break;
         }
@@ -604,7 +549,7 @@ const initScrapeEnglishAuctionEventLogs = async function (lastSeenBlockRes) {
     }
     if (fromBlock <= toBlock) {
       const allEventLogs = await EnglishAuctionContract.getPastEvents(
-        "allEvents",
+        'allEvents',
         {
           fromBlock,
           toBlock,
@@ -685,10 +630,15 @@ const initScrapeEnglishAuctionEventLogs = async function (lastSeenBlockRes) {
             _placeBid(element, AuctionId, bidder, Bid);
             break;
           case "AuctionComplete":
-            _auctionComplete(element);
+            let auctionId_= element.returnValues.auctionID
+            let winningBid = element.returnValues.winningBid
+            let winner = element.returnValues.winner
+
+            _auctionComplete(element,auctionId_,winningBid,winner);
             break;
           case "AuctionCancel":
-            _cancelAuction(element);
+            let auctionID = element.returnValues.auctionID;
+            _cancelAuction(element,auctionID);
           default:
             break;
         }
@@ -779,6 +729,34 @@ async function _configureAuction(
       state: "ONGOING",
     }
   );
+  const dbAuction = await auctionModel.findOne({ auctionId: auctionId });
+  const dbAsset = await assetsModel.findById(dbAuction.asset_id);
+  const dbAssetHistory = await assetHistoryModel.findOne({
+    asset_id: dbAsset.asset_id,
+  });
+  if (dbAssetHistory) {
+    await dbAssetHistory.update({
+      $push: {
+        history: [
+          {
+            event: LIST,
+            event_date: dbAuction.createdAt.toLocaleDateString(),
+            event_time: dbAuction.createdAt.toLocaleTimeString([], {
+              hour: '2-digit',
+              minute: '2-digit',
+            }),
+            price: dbAuction.englishAuctionAttribute.opening_price,
+            from: dbAuction.seller,
+            actions: config.POLYGON_EXPLORER + '/' + element.transactionHash,
+          },
+        ],
+      },
+    });
+    console.log('### List English Asset history in asset history table ###');
+  } else {
+    console.log('asset not minted yet..', dbAsset.asset_id);
+  }
+  await dbAssetHistory.save();
   const seentxConfigure = new seenTransactionModel({
     transactionHash: element.transactionHash,
     blockNumber: element.blockNumber,
@@ -814,17 +792,53 @@ async function _placeBid(element, auctionId, bidder, Bid) {
   await seentxBid.save();
 }
 
-async function _auctionComplete(element) {
+async function _auctionComplete(element,auctionID,winningBid,winner) {
   await auctionModel.updateMany(
-    { auctionId: element.returnValues.auctionID },
+    { auctionId: auctionID },
     {
       $set: {
-        "englishAuctionAttribute.winning_bid": element.returnValues.winningBid,
+        "englishAuctionAttribute.winning_bid": winningBid,
       },
-      buyer: element.returnValues.winner,
+      buyer: winner,
       state: "SUCCESSFULLY-COMPLETED",
     }
   );
+
+  //change owner in asset schema
+  const dbAuction = await auctionModel.findOne({auctionId:auctionID});
+  const assetObject = dbAuction.asset_id;
+  const dbAsset = await assetsModel.findById(assetObject);
+  await assetsModel.updateOne({asset_id:dbAsset.asset_id},{owner:winner});
+
+  //make entry in asset history
+  const dbAssetHistory = await assetHistoryModel.findOne({
+    asset_id: dbAsset.asset_id,
+  });
+  if (dbAssetHistory) {
+    await dbAssetHistory.update({
+      $push: {
+        'history': [
+          {
+            event: TRANSFER,
+            event_date: dbAuction.createdAt.toLocaleDateString(),
+            event_time: dbAuction.createdAt.toLocaleTimeString([], {
+              hour: '2-digit',
+              minute: '2-digit',
+            }),
+            price: winningBid,
+            from: dbAuction.seller,
+            to: winner,
+            actions: config.POLYGON_EXPLORER + '/' + element.transactionHash,
+          },
+        ],
+      },
+    });
+    console.log('### Transfer English Asset history in asset history table ###');
+  }
+  else{
+    console.log("asset not minted yet..",dbAsset.asset_id);
+  }
+  await dbAssetHistory.save();
   const seentxComplete = new seenTransactionModel({
     transactionHash: element.transactionHash,
     blockNumber: element.blockNumber,
@@ -834,13 +848,47 @@ async function _auctionComplete(element) {
   await seentxComplete.save();
 }
 
-async function _cancelAuction(element) {
+async function _cancelAuction(element,auctionID) {
   await auctionModel.updateOne(
-    { auctionId: element.returnValues.auctionID },
+    { auctionId: auctionID },
     {
       state: "CANCELLED",
+      $set: { "englishAuctionAttribute.winning_bid": 0 },
     }
   );
+
+  //make entry in asset history
+  const dbAuction = await auctionModel.findOne({auctionId:auctionID});
+  const assetObject = dbAuction.asset_id;
+  const dbAsset = await assetsModel.findById(assetObject);
+
+  const dbAssetHistory = await assetHistoryModel.findOne({
+    asset_id: dbAsset.asset_id,
+  });
+  if (dbAssetHistory) {
+    await dbAssetHistory.update({
+      $push: {
+        'history': [
+          {
+            event: CANCEL_LIST,
+            event_date: dbAuction.createdAt.toLocaleDateString(),
+            event_time: dbAuction.createdAt.toLocaleTimeString([], {
+              hour: '2-digit',
+              minute: '2-digit',
+            }),
+            price: dbAuction.englishAuctionAttribute.opening_price,
+            from: dbAuction.seller,
+            actions: config.POLYGON_EXPLORER + '/' + element.transactionHash,
+          },
+        ],
+      },
+    });
+    console.log('### cancel List English Asset history in asset history table ###');
+  }
+  else{
+    console.log("asset not minted yet..",dbAsset.asset_id);
+  }
+  await dbAssetHistory.save();
   const seentxCancel = new seenTransactionModel({
     transactionHash: element.transactionHash,
     blockNumber: element.blockNumber,

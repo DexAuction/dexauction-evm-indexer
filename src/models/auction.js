@@ -68,5 +68,6 @@ const auction = new mongoose.Schema({
     drop_amount: Number,
   },
 });
+auction.set("timestamps", true);
 
 module.exports = mongoose.model("auctions", auction);

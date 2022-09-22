@@ -73,6 +73,188 @@ module.exports = [
 		"type": "event"
 	},
 	{
+		"anonymous": false,
+		"inputs": [
+			{
+				"indexed": true,
+				"internalType": "uint256",
+				"name": "auctionId",
+				"type": "uint256"
+			},
+			{
+				"indexed": false,
+				"internalType": "string",
+				"name": "auction_type",
+				"type": "string"
+			},
+			{
+				"indexed": true,
+				"internalType": "address",
+				"name": "auctionOwner",
+				"type": "address"
+			},
+			{
+				"indexed": true,
+				"internalType": "uint256",
+				"name": "basketId",
+				"type": "uint256"
+			}
+		],
+		"name": "BasketAuctionCreateProxy",
+		"type": "event"
+	},
+	{
+		"anonymous": false,
+		"inputs": [
+			{
+				"indexed": true,
+				"internalType": "uint256",
+				"name": "basketId",
+				"type": "uint256"
+			},
+			{
+				"indexed": false,
+				"internalType": "address[]",
+				"name": "NFT_contract_addresses",
+				"type": "address[]"
+			},
+			{
+				"indexed": false,
+				"internalType": "uint256[]",
+				"name": "asset_token_ids",
+				"type": "uint256[]"
+			},
+			{
+				"indexed": false,
+				"internalType": "uint256[]",
+				"name": "quantities",
+				"type": "uint256[]"
+			}
+		],
+		"name": "BasketCreate",
+		"type": "event"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address[]",
+				"name": "_NFT_contract_addresses",
+				"type": "address[]"
+			},
+			{
+				"internalType": "uint256[]",
+				"name": "_asset_token_ids",
+				"type": "uint256[]"
+			},
+			{
+				"internalType": "uint256[]",
+				"name": "_quantities",
+				"type": "uint256[]"
+			}
+		],
+		"name": "createBasket",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "string",
+				"name": "_auction_type",
+				"type": "string"
+			},
+			{
+				"internalType": "uint256",
+				"name": "_basketId",
+				"type": "uint256"
+			}
+		],
+		"name": "createBasketAuction",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "string",
+				"name": "_auction_type",
+				"type": "string"
+			},
+			{
+				"internalType": "address",
+				"name": "_NFT_contract_address",
+				"type": "address"
+			},
+			{
+				"internalType": "uint256",
+				"name": "_asset_token_id",
+				"type": "uint256"
+			}
+		],
+		"name": "createNFTAuction",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "uint256",
+				"name": "_auctionId",
+				"type": "uint256"
+			},
+			{
+				"internalType": "address",
+				"name": "_owner",
+				"type": "address"
+			},
+			{
+				"internalType": "uint256",
+				"name": "winnningBid",
+				"type": "uint256"
+			}
+		],
+		"name": "endAuction",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "_english_auction_house",
+				"type": "address"
+			},
+			{
+				"internalType": "address",
+				"name": "_dutch_auction_house",
+				"type": "address"
+			},
+			{
+				"internalType": "address",
+				"name": "_sealed_bid_auction_house",
+				"type": "address"
+			},
+			{
+				"internalType": "address",
+				"name": "_vickrey_auction_house",
+				"type": "address"
+			},
+			{
+				"internalType": "address",
+				"name": "_fpl_auction_house",
+				"type": "address"
+			}
+		],
+		"name": "saveFactoryAddresses",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
 		"inputs": [
 			{
 				"internalType": "uint256",
@@ -108,8 +290,18 @@ module.exports = [
 				"type": "uint256"
 			},
 			{
+				"internalType": "uint256",
+				"name": "basketId",
+				"type": "uint256"
+			},
+			{
 				"internalType": "bool",
 				"name": "isExists",
+				"type": "bool"
+			},
+			{
+				"internalType": "bool",
+				"name": "isBasketAuction",
 				"type": "bool"
 			}
 		],
@@ -119,47 +311,37 @@ module.exports = [
 	{
 		"inputs": [
 			{
-				"internalType": "string",
-				"name": "_auction_type",
-				"type": "string"
-			},
-			{
-				"internalType": "address",
-				"name": "_NFT_contract_address",
-				"type": "address"
-			},
-			{
 				"internalType": "uint256",
-				"name": "_asset_token_id",
+				"name": "_basketId",
 				"type": "uint256"
 			}
 		],
-		"name": "createAuction",
-		"outputs": [],
-		"stateMutability": "nonpayable",
-		"type": "function"
-	},
-	{
-		"inputs": [
+		"name": "getBasket",
+		"outputs": [
 			{
-				"internalType": "uint256",
-				"name": "_auctionId",
-				"type": "uint256"
-			},
-			{
-				"internalType": "address",
-				"name": "_owner",
-				"type": "address"
-			},
-			{
-				"internalType": "uint256",
-				"name": "winnningBid",
-				"type": "uint256"
+				"components": [
+					{
+						"internalType": "address[]",
+						"name": "NFT_contract_addresses",
+						"type": "address[]"
+					},
+					{
+						"internalType": "uint256[]",
+						"name": "asset_token_ids",
+						"type": "uint256[]"
+					},
+					{
+						"internalType": "uint256[]",
+						"name": "quantities",
+						"type": "uint256[]"
+					}
+				],
+				"internalType": "struct DexAuction.Basket",
+				"name": "",
+				"type": "tuple"
 			}
 		],
-		"name": "endAuction",
-		"outputs": [],
-		"stateMutability": "nonpayable",
+		"stateMutability": "view",
 		"type": "function"
 	},
 	{
@@ -194,39 +376,6 @@ module.exports = [
 			}
 		],
 		"stateMutability": "pure",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "address",
-				"name": "_english_auction_house",
-				"type": "address"
-			},
-			{
-				"internalType": "address",
-				"name": "_dutch_auction_house",
-				"type": "address"
-			},
-			{
-				"internalType": "address",
-				"name": "_sealed_bid_auction_house",
-				"type": "address"
-			},
-			{
-				"internalType": "address",
-				"name": "_vickrey_auction_house",
-				"type": "address"
-			},
-			{
-				"internalType": "address",
-				"name": "_fpl_auction_house",
-				"type": "address"
-			}
-		],
-		"name": "saveFactoryAddresses",
-		"outputs": [],
-		"stateMutability": "nonpayable",
 		"type": "function"
 	}
 ]
