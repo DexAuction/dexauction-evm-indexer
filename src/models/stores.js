@@ -1,30 +1,32 @@
 const mongoose = require("mongoose");
 
 const stores = new mongoose.Schema({
-  storeId: Number,
-
-  storeName: String,
-
+  storeId: {
+    type: Number,
+  },
+  storeName: {
+    type: String,
+  },
   network: {
     type: String,
     enum: ["ethererum", "polygon", "binance-smart-chain"],
   },
-
-  storeURL: String,
-
+  storeURL: {
+    type: String,
+  },
   storeStatus: {
     type: String,
     enum: ["active", "deactivated"],
   },
-
-  assetCategories: Array,
-
-  auctions: Array,
-
-  email: String,
-
-  createdDate: String,
-
+  assetCategories: {
+    type: [String],
+  },
+  auctions: {
+    type: [String],
+  },
+  email: {
+    type: String,
+  },
   publishStatus: {
     type: String,
     enum: ["published", "unpublished"],

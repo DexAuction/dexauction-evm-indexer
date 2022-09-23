@@ -2,7 +2,7 @@ const mongoose = require("mongoose");
 const {DEFAULT_ASSET_STATUS,ON_SALE_ASSET_STATUS} = require("../constants")
 
 const asset = new mongoose.Schema({
-  asset_id: {
+  assetId: {
     type: Number,
   },
   status: {
@@ -51,12 +51,15 @@ const asset = new mongoose.Schema({
   background_color: {
     type: String,
   },
-  collection_id: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'collections',
-  },
   NFTCollection: {
     type: String,
+  },
+  collectionId: {
+    type: Number,
+  },
+  fk_collectionId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'collections',
   },
 });
 asset.set("timestamps", true);
