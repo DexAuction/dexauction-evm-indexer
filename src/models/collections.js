@@ -1,6 +1,6 @@
 const mongoose = require("mongoose");
 
-const collections = new mongoose.Schema({
+const collection = new mongoose.Schema({
   collectionId: {
     type: Number,
   },
@@ -37,4 +37,4 @@ const collections = new mongoose.Schema({
     ref: "stores",
   },
 });
-module.exports = mongoose.model("collections", collections);
+module.exports = mongoose.model("collections", collection);

@@ -1,6 +1,6 @@
 const mongoose = require("mongoose");
 
-const stores = new mongoose.Schema({
+const store = new mongoose.Schema({
   storeId: {
     type: Number,
   },
@@ -32,4 +32,4 @@ const stores = new mongoose.Schema({
     enum: ["published", "unpublished"],
   },
 });
-module.exports = mongoose.model("stores", stores);
+module.exports = mongoose.model("stores", store);
