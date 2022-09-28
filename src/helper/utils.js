@@ -10,7 +10,7 @@ async function createAssetHelper(
   assetTokenId,
   assetOwner,
   NFTContract,
-  NFTContractInstance
+  NFTContractInstance,
 ) {
   let getTokenURI;
   getTokenURI = await NFTContractInstance.methods.tokenURI(assetTokenId).call();
@@ -23,7 +23,8 @@ async function createAssetHelper(
 
     const assetEntry = {
       assetContractAddress: Eventlog.address,
-      collection_id: getCollection._id,
+      collectionId: getCollection.collectionId,
+      fk_collectionId: getCollection._id,
       assetTokenId: assetTokenId,
       status: DEFAULT_ASSET_STATUS,
       mintedAt: '',
@@ -47,13 +48,13 @@ async function createAssetHelper(
     }
     assetEntry['NFTCollection'] = NFTContract.name;
 
-    assetEntry['asset_id'] = (await assetModel.countDocuments()) + 1;
+    assetEntry['assetId'] = (await assetModel.countDocuments()) + 1;
     const dbAsset = new assetModel(assetEntry);
     await dbAsset.save();
     // mint details in asset history
 
     const history = {
-      asset_id: dbAsset.asset_id,
+      assetId: dbAsset.assetId,
       history: [
         {
           event: MINT,

@@ -5,10 +5,6 @@ const auction = new mongoose.Schema({
     type: Number,
     unique: true,
   },
-  asset_id:{
-    type: mongoose.Schema.Types.ObjectId,
-    ref:'assets'
-  },
   auctionType: {
     type: String,
     enum: ["fpl", "dutch", "english", "sealed-bid", "vickery"],
@@ -66,6 +62,13 @@ const auction = new mongoose.Schema({
     winning_bid: Number,
     reserve_price: Number,
     drop_amount: Number,
+  },
+  assetId: {
+    type: Number,
+  },
+  fk_assetId:{
+    type: mongoose.Schema.Types.ObjectId,
+    ref:'assets'
   },
 });
 auction.set("timestamps", true);

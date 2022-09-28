@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 const { MINT, LIST, TRANSFER, CANCEL_LIST } = require('../constants');
 
 const assetHistory = new mongoose.Schema({
-  asset_id: {
+  assetId: {
     type: Number,
   },
   history: [
