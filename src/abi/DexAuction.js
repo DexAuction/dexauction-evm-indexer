@@ -605,5 +605,38 @@ module.exports = [
 		"outputs": [],
 		"stateMutability": "nonpayable",
 		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "_english_auction_house",
+				"type": "address"
+			},
+			{
+				"internalType": "address",
+				"name": "_dutch_auction_house",
+				"type": "address"
+			},
+			{
+				"internalType": "address",
+				"name": "_sealed_bid_auction_house",
+				"type": "address"
+			},
+			{
+				"internalType": "address",
+				"name": "_vickrey_auction_house",
+				"type": "address"
+			},
+			{
+				"internalType": "address",
+				"name": "_fpl_auction_house",
+				"type": "address"
+			}
+		],
+		"name": "saveFactoryAddresses",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
 	}
 ]
