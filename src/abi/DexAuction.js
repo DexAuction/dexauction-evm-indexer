@@ -135,6 +135,105 @@ module.exports = [
 		"type": "event"
 	},
 	{
+		"anonymous": false,
+		"inputs": [
+			{
+				"indexed": true,
+				"internalType": "uint256",
+				"name": "basketId",
+				"type": "uint256"
+			}
+		],
+		"name": "BasketDestroy",
+		"type": "event"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "uint256",
+				"name": "_basketId",
+				"type": "uint256"
+			}
+		],
+		"name": "DestroyBasket",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "uint256",
+				"name": "",
+				"type": "uint256"
+			}
+		],
+		"name": "auctions",
+		"outputs": [
+			{
+				"internalType": "string",
+				"name": "auction_type",
+				"type": "string"
+			},
+			{
+				"internalType": "address",
+				"name": "owner",
+				"type": "address"
+			},
+			{
+				"internalType": "address",
+				"name": "NFT_contract_address",
+				"type": "address"
+			},
+			{
+				"internalType": "address",
+				"name": "contract_address",
+				"type": "address"
+			},
+			{
+				"internalType": "uint256",
+				"name": "asset_token_id",
+				"type": "uint256"
+			},
+			{
+				"internalType": "uint256",
+				"name": "basketId",
+				"type": "uint256"
+			},
+			{
+				"internalType": "bool",
+				"name": "isExists",
+				"type": "bool"
+			},
+			{
+				"internalType": "bool",
+				"name": "isBasketAuction",
+				"type": "bool"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "uint256",
+				"name": "",
+				"type": "uint256"
+			}
+		],
+		"name": "basketAuctions",
+		"outputs": [
+			{
+				"internalType": "uint256",
+				"name": "",
+				"type": "uint256"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
 		"inputs": [
 			{
 				"internalType": "address[]",
@@ -224,93 +323,6 @@ module.exports = [
 	{
 		"inputs": [
 			{
-				"internalType": "address",
-				"name": "_english_auction_house",
-				"type": "address"
-			},
-			{
-				"internalType": "address",
-				"name": "_dutch_auction_house",
-				"type": "address"
-			},
-			{
-				"internalType": "address",
-				"name": "_sealed_bid_auction_house",
-				"type": "address"
-			},
-			{
-				"internalType": "address",
-				"name": "_vickrey_auction_house",
-				"type": "address"
-			},
-			{
-				"internalType": "address",
-				"name": "_fpl_auction_house",
-				"type": "address"
-			}
-		],
-		"name": "saveFactoryAddresses",
-		"outputs": [],
-		"stateMutability": "nonpayable",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "uint256",
-				"name": "",
-				"type": "uint256"
-			}
-		],
-		"name": "auctions",
-		"outputs": [
-			{
-				"internalType": "string",
-				"name": "auction_type",
-				"type": "string"
-			},
-			{
-				"internalType": "address",
-				"name": "owner",
-				"type": "address"
-			},
-			{
-				"internalType": "address",
-				"name": "NFT_contract_address",
-				"type": "address"
-			},
-			{
-				"internalType": "address",
-				"name": "contract_address",
-				"type": "address"
-			},
-			{
-				"internalType": "uint256",
-				"name": "asset_token_id",
-				"type": "uint256"
-			},
-			{
-				"internalType": "uint256",
-				"name": "basketId",
-				"type": "uint256"
-			},
-			{
-				"internalType": "bool",
-				"name": "isExists",
-				"type": "bool"
-			},
-			{
-				"internalType": "bool",
-				"name": "isBasketAuction",
-				"type": "bool"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
 				"internalType": "uint256",
 				"name": "_basketId",
 				"type": "uint256"
@@ -334,6 +346,11 @@ module.exports = [
 						"internalType": "uint256[]",
 						"name": "quantities",
 						"type": "uint256[]"
+					},
+					{
+						"internalType": "bool",
+						"name": "isExists",
+						"type": "bool"
 					}
 				],
 				"internalType": "struct DexAuction.Basket",
@@ -376,6 +393,39 @@ module.exports = [
 			}
 		],
 		"stateMutability": "pure",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "_english_auction_house",
+				"type": "address"
+			},
+			{
+				"internalType": "address",
+				"name": "_dutch_auction_house",
+				"type": "address"
+			},
+			{
+				"internalType": "address",
+				"name": "_sealed_bid_auction_house",
+				"type": "address"
+			},
+			{
+				"internalType": "address",
+				"name": "_vickrey_auction_house",
+				"type": "address"
+			},
+			{
+				"internalType": "address",
+				"name": "_fpl_auction_house",
+				"type": "address"
+			}
+		],
+		"name": "saveFactoryAddresses",
+		"outputs": [],
+		"stateMutability": "nonpayable",
 		"type": "function"
 	}
 ]

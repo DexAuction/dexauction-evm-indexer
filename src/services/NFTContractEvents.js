@@ -109,8 +109,8 @@ const scrapeNftContractEventLogs = async function () {
         console.log("allEventLogs ", allEventLogs);
         for (element of allEventLogs) {
           if (
-            (element.returnValues.from =
-              "0x0000000000000000000000000000000000000000")
+            element.returnValues.from ===
+              "0x0000000000000000000000000000000000000000"
           ) {
             const seenTx = await seenTransactionModel.findOne({
               transactionHash: element.transactionHash,
@@ -124,7 +124,7 @@ const scrapeNftContractEventLogs = async function () {
             switch (element.event) {
               case "Transfer":
                 if (
-                  element.returnValues.from ==
+                  element.returnValues.from ===
                   "0x0000000000000000000000000000000000000000"
                 ) {
                   promises.push(

@@ -70,7 +70,13 @@ const auction = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref:'assets'
   },
+  fk_basketId : {
+    type: mongoose.Schema.Types.ObjectId,
+    ref:'baskets'
+  },
+  basketId : Number
 });
+
 auction.set("timestamps", true);
 
 module.exports = mongoose.model("auctions", auction);
