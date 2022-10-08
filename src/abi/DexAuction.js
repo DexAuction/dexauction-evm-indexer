@@ -638,5 +638,182 @@ module.exports = [
 		"outputs": [],
 		"stateMutability": "nonpayable",
 		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"components": [
+					{
+						"internalType": "address",
+						"name": "NFT_contract_address",
+						"type": "address"
+					},
+					{
+						"internalType": "uint256[]",
+						"name": "asset_token_ids",
+						"type": "uint256[]"
+					},
+					{
+						"internalType": "uint256[]",
+						"name": "quantities",
+						"type": "uint256[]"
+					},
+					{
+						"internalType": "enum DexAuction.TokenStandards",
+						"name": "tokenStandard",
+						"type": "uint8"
+					}
+				],
+				"internalType": "struct DexAuction.SubBasket[]",
+				"name": "_subBaskets",
+				"type": "tuple[]"
+			}
+		],
+		"name": "createBasket",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "uint256",
+				"name": "_basketId",
+				"type": "uint256"
+			}
+		],
+		"name": "destroyBasket",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "uint256",
+				"name": "_basketId",
+				"type": "uint256"
+			}
+		],
+		"name": "getBasket",
+		"outputs": [
+			{
+				"internalType": "uint256[]",
+				"name": "_subBasketIds",
+				"type": "uint256[]"
+			},
+			{
+				"internalType": "bool",
+				"name": "isExists",
+				"type": "bool"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function",
+		"constant": true
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "uint256",
+				"name": "_subBasketId",
+				"type": "uint256"
+			}
+		],
+		"name": "getSubBasket",
+		"outputs": [
+			{
+				"internalType": "address",
+				"name": "NFT_contract_address",
+				"type": "address"
+			},
+			{
+				"internalType": "uint256[]",
+				"name": "asset_token_ids",
+				"type": "uint256[]"
+			},
+			{
+				"internalType": "uint256[]",
+				"name": "quantities",
+				"type": "uint256[]"
+			},
+			{
+				"internalType": "enum DexAuction.TokenStandards",
+				"name": "tokenStandard",
+				"type": "uint8"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function",
+		"constant": true
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "string",
+				"name": "_auction_type",
+				"type": "string"
+			},
+			{
+				"internalType": "address",
+				"name": "_NFT_contract_address",
+				"type": "address"
+			},
+			{
+				"internalType": "uint256",
+				"name": "_asset_token_id",
+				"type": "uint256"
+			},
+			{
+				"internalType": "uint256",
+				"name": "_asset_quantity",
+				"type": "uint256"
+			}
+		],
+		"name": "createNFTAuction",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "string",
+				"name": "_auction_type",
+				"type": "string"
+			},
+			{
+				"internalType": "uint256",
+				"name": "_basketId",
+				"type": "uint256"
+			}
+		],
+		"name": "createBasketAuction",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "uint256",
+				"name": "_auctionId",
+				"type": "uint256"
+			},
+			{
+				"internalType": "address",
+				"name": "_owner",
+				"type": "address"
+			},
+			{
+				"internalType": "uint256",
+				"name": "winnningBid",
+				"type": "uint256"
+			}
+		],
+		"name": "endAuction",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
 	}
 ]
