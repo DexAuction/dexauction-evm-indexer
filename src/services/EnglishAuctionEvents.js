@@ -42,8 +42,7 @@ const EnglishCreateAuctionEventSubscription = async function () {
         !err &&
         result.address.toLowerCase() ===
           config.NETWORK_CONFIG.ENGLISH_AUCTION_ADDRESS.toLowerCase() &&
-        result.topics[0] ===
-          '0x5f6e9130c3f991e5678d5df51f9547926db4b428e3bfdf539f463a0f6416e42c'
+        result.topics[0] === config.EVENT_TOPIC_SIGNATURES.ENGLISH_AUCTION_CREATE
       ) {
         openingPrice = web3.eth.abi.decodeParameter(
           'uint256',
@@ -87,8 +86,7 @@ const EnglishCreateAuctionEventSubscription = async function () {
         !err &&
         result2.address.toLowerCase() ===
           config.NETWORK_CONFIG.PROXY_ADDRESS.toLowerCase() &&
-        result2.topics[0] ===
-          '0xaa53b7d866501db7f1ccfc14acad91862e63106905d565bf9fd2f4800505f6b1'
+        result2.topics[0] === config.EVENT_TOPIC_SIGNATURES.AUCTION_CREATE_PROXY
       ) {
         const auctionTypeHex = '0x' + result2.data.substring(194);
         const auctionTypeDecode = web3.utils.hexToUtf8(auctionTypeHex);
@@ -143,8 +141,7 @@ const EnglishCreateAuctionEventSubscription = async function () {
         !err &&
         result3.address.toLowerCase() ===
           config.NETWORK_CONFIG.PROXY_ADDRESS.toLowerCase() &&
-          result3.topics[0] ===
-          "0xc294e1b1839fd6d46673b4b12423aeda38a49c5b1b6c2538625de4c52104eefb"
+          result3.topics[0] === config.EVENT_TOPIC_SIGNATURES.BASKET_AUCTION_CREATE_PROXY
       ) {
 
        console.log("Result basket auction ",result3);
@@ -216,8 +213,7 @@ const EnglishConfigureAuctionEventSubscription = async function () {
         !err &&
         result.address.toLowerCase() ===
           config.NETWORK_CONFIG.ENGLISH_AUCTION_ADDRESS.toLowerCase() &&
-        result.topics[0] ===
-          '0x778db73461320c581d7308b972ca3e9c16ffce06149dc94175298d0d03365cf2'
+        result.topics[0] === config.EVENT_TOPIC_SIGNATURES.ENGLISH_CONFIGURE_AUCTION
       ) {
         console.log('result Configure ', result);
         const seenTx = await seenTransactionModel.findOne({
@@ -291,8 +287,7 @@ const EnglishPlaceBidEventSubscription = async function () {
         !err &&
         result.address.toLowerCase() ===
           config.NETWORK_CONFIG.ENGLISH_AUCTION_ADDRESS.toLowerCase() &&
-        result.topics[0] ===
-          '0x5f40cf581002f0c6368477b76b97ed3bab00a2804aee9ec09328cbcbc5304aec'
+        result.topics[0] === config.EVENT_TOPIC_SIGNATURES.ENGLISH_PLACE_BID
       ) {
         console.log('result Bid ', result);
         const seenTx = await seenTransactionModel.findOne({
@@ -335,8 +330,7 @@ const EnglishAuctionEndEventSubscription = async function () {
         !err &&
         result.address.toLowerCase() ===
           config.NETWORK_CONFIG.PROXY_ADDRESS.toLowerCase() &&
-        result.topics[0] ===
-          '0x63205d4b0571673d9c1d2319c4a2ed023943c9757f110eefffb8e2c1decdd160'
+        result.topics[0] === config.EVENT_TOPIC_SIGNATURES.ENGLISH_AUCTION_END
       ) {
         console.log('result end auction ', result);
 
@@ -366,8 +360,7 @@ const EnglishAuctionCancelEventSubscription = async function () {
         !err &&
         result.address.toLowerCase() ===
           config.NETWORK_CONFIG.ENGLISH_AUCTION_ADDRESS.toLowerCase() &&
-        result.topics[0] ===
-          '0x1d30295566a0ab516b4cd02b8875bb7e3c7e83307b7cdeb0966216825ab5e4be'
+        result.topics[0] === config.EVENT_TOPIC_SIGNATURES.ENGLISH_AUCTION_CANCEL
       ) {
         console.log('result cancel auction ', result);
         const seenTx = await seenTransactionModel.findOne({
@@ -406,8 +399,7 @@ const EnglishAuctionCompleteEventSubscription = async function () {
         !err &&
         result.address.toLowerCase() ===
           config.NETWORK_CONFIG.ENGLISH_AUCTION_ADDRESS.toLowerCase() &&
-        result.topics[0] ===
-          '0x76176cce0ff2d1acbd12eeb335774966211b60f9b0e673348f6168a9ae2f66fb'
+        result.topics[0] === config.EVENT_TOPIC_SIGNATURES.ENGLISH_AUCTION_COMPLETE
       ) {
         console.log('result complete Auction ', result);
 

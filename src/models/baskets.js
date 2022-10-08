@@ -1,23 +1,51 @@
 const mongoose = require('mongoose');
 
 const basket = new mongoose.Schema({
-  basketId: Number,
+  basketId: {
+    type: Number,
+  },
 
-  contractAddresses: Array,
+  contractAddresses: {
+    type: [String],
+  },
 
-  assetTokenIds: Array,
+  assetTokenIds: {
+    type: [Number],
+  },
 
-  quantities: Array,
+  quantities: {
+    type: [Number],
+  },
 
-  collectionIds: Array,
+  collectionIds: {
+    type: [Number],
+  },
 
-  fk_collectionIds: Array,
+  fk_collectionIds: {
+    type: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'collections',
+      },
+    ],
+  },
 
-  assetIds: Array,
+  assetIds: {
+    type: [Number],
+  },
 
-  fk_assetIds: Array,
+  fk_assetIds: {
+    type: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'assets',
+      },
+    ],
+  },
 
-  auctionId : Number,
+  auctionId: {
+    type: Number,
+  },
 
   fk_auctionId: {
     type: mongoose.Schema.Types.ObjectId,

@@ -31,8 +31,7 @@ const BasketCreateEventSubscription = async function () {
         !err &&
         result.address.toLowerCase() ===
         config.NETWORK_CONFIG.PROXY_ADDRESS.toLowerCase() &&
-        result.topics[0] ===
-          "0x4252200bf4b0d87673bbbc4383bf486bae29d8a62ed1ad8a570eeaaa8388d773"
+        result.topics[0] === config.EVENT_TOPIC_SIGNATURES.BASKET_CREATE
       ) {
         console.log("Result basket",result);
         const seenTx = await seenTransactionModel.findOne({
@@ -47,74 +46,33 @@ const BasketCreateEventSubscription = async function () {
 
         transactionHash = result.transactionHash;
 
-        basketId = web3.eth.abi.decodeParameter("uint256", result.topics[1]);
-            console.log("basketId",basketId);
+        const decodedData = web3.eth.abi.decodeLog(
+          PROXY_AUCTION_ABI[4]["inputs"], 
+          result.data, 
+          result.topics.slice(1)
+        );
 
-            const contractArrayLenHex = "0x" + result.data.substring(194, 258);
-            const contractArrayLen = web3.eth.abi.decodeParameter(
-                'uint256',
-                contractArrayLenHex
-              );
-             let NftAddresses=[];
-             let start ;
-             let end ;
-             start = 258;
-             for(let i=0;i<contractArrayLen;i++){
-                 end = start + 64;
-                const add_hex = "0x" + result.data.substring(start, end);
-                const address_decode = web3.eth.abi.decodeParameter(
-                    'address',
-                    add_hex
-                  );
-                  NftAddresses.push(address_decode);
-                  start=end;
-                 
-             }
-              let index = end+64;
-              const tokenIdArrayLenHex = "0x" + result.data.substring(end, index);
-              const tokenIdArrayLen = web3.eth.abi.decodeParameter(
-                'uint256',
-                tokenIdArrayLenHex
-              );
-              let tokenIds=[];
-              start = index;
-              for(let i=0;i<tokenIdArrayLen;i++){
-                  end = start + 64;
-                 const token_hex = "0x" + result.data.substring(start, end);
-                 const tokenId_decode = web3.eth.abi.decodeParameter(
-                     'uint256',
-                     token_hex
-                   );
-                   tokenIds.push(tokenId_decode);
-                   start=end;
-                  
-              }
-               index = end+64;
-              const quantityArrayLenHex = "0x" + result.data.substring(end, index);
-              const quantityArrayLen = web3.eth.abi.decodeParameter(
-                'uint256',
-                quantityArrayLenHex
-              );
-              let quantites=[];
-              start = index;
-              for(let i=0;i<quantityArrayLen;i++){
-                  end = start + 64;
-                 const quantity_hex = "0x" + result.data.substring(start, end);
-                 const quantity_decode = web3.eth.abi.decodeParameter(
-                     'uint256',
-                     quantity_hex
-                   );
-                   quantites.push(quantity_decode);
-                   start=end;
-                  
-              }
+        const basketId = decodedData.basketId;
+        const subBaskets = decodedData.subBaskets;
+        console.log("\nbasketId: ", basketId,"\nsubBaskets: ", subBaskets);
 
-              //save in DB
-              _createBasketHelper(result,
-                basketId,
-                NftAddresses,
-                tokenIds,
-                quantites)
+        let NftAddresses = [];
+        let tokenIds = [];
+        let quantities = [];
+        subBaskets.forEach(subBasket => {
+          for (let i = 0; i < subBasket.asset_token_ids.length; i++) {
+            NftAddresses.push(subBasket.NFT_contract_address);
+            tokenIds.push(subBasket.asset_token_ids[i]);
+            quantities.push(subBasket.quantities[i]);
+          }
+        });
+
+        //save in DB
+        _createBasketHelper(result,
+          basketId,
+          NftAddresses,
+          tokenIds,
+          quantities)
        }
     }
   );
@@ -177,11 +135,18 @@ const scrapeCreateBasketEventLogs = async function () {
             }
             switch (element.event) {
               case "BasketCreate":
-
-                  let basketId = element.returnValues.basketId;
-                  let NftAddresses = element.returnValues.NFT_contract_addresses;
-                  let tokenIds = element.returnValues.asset_token_ids;
-                  let quantities = element.returnValues.quantities;
+                let basketId = element.returnValues.basketId;
+                let subBaskets = element.returnValues.subBaskets;
+                let NftAddresses = [];
+                let tokenIds = [];
+                let quantities = [];
+                subBaskets.forEach(subBasket => {
+                  for (let i = 0; i < subBasket.asset_token_ids.length; i++) {
+                    NftAddresses.push(subBasket.NFT_contract_address);
+                    tokenIds.push(subBasket.asset_token_ids[i]);
+                    quantities.push(subBasket.quantities[i]);
+                  }
+                });
 
                 _createBasketHelper(element,
                   basketId,
@@ -251,17 +216,25 @@ const initScrapeCreateBasketEventLogs = async function (lastSeenBlockRes) {
           switch (element.event) {
             case "BasketCreate":
               let basketId = element.returnValues.basketId;
-              let NftAddresses = element.returnValues.NFT_contract_addresses;
-              let tokenIds = element.returnValues.asset_token_ids;
-              let quantities = element.returnValues.quantities;
+              let subBaskets = element.returnValues.subBaskets;
+              let NftAddresses = [];
+              let tokenIds = [];
+              let quantities = [];
+              subBaskets.forEach(subBasket => {
+                for (let i = 0; i < subBasket.asset_token_ids.length; i++) {
+                  NftAddresses.push(subBasket.NFT_contract_address);
+                  tokenIds.push(subBasket.asset_token_ids[i]);
+                  quantities.push(subBasket.quantities[i]);
+                }
+              });
 
-            _createBasketHelper(element,
-              basketId,
-              NftAddresses,
-              tokenIds,
-              quantities);
+              _createBasketHelper(element,
+                basketId,
+                NftAddresses,
+                tokenIds,
+                quantities);
 
-              break;
+                break;
             default:
               break;
           }
@@ -285,7 +258,7 @@ async function _createBasketHelper(
   basketId,
   nftContracts,
   tokenIds,
-  quantites
+  quantities
 ) {
   const seentx = new seenTransactionModel({
     transactionHash: EventLog.transactionHash,
@@ -299,7 +272,7 @@ async function _createBasketHelper(
     basketId,
     nftContracts,
     tokenIds,
-    quantites
+    quantities
   );
 }
 

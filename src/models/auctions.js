@@ -9,12 +9,6 @@ const auction = new mongoose.Schema({
     type: String,
     enum: ["fpl", "dutch", "english", "sealed-bid", "vickery"],
   },
-  tokenContract: {
-    type: String,
-  },
-  assetTokenId: {
-    type: Number,
-  },
   seller: {
     type: String,
   },
@@ -63,6 +57,12 @@ const auction = new mongoose.Schema({
     reserve_price: Number,
     drop_amount: Number,
   },
+  tokenContract: {
+    type: String,
+  },
+  assetTokenId: {
+    type: Number,
+  },
   assetId: {
     type: Number,
   },
@@ -70,11 +70,13 @@ const auction = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref:'assets'
   },
+  basketId: {
+    type: Number,
+  },
   fk_basketId : {
     type: mongoose.Schema.Types.ObjectId,
     ref:'baskets'
   },
-  basketId : Number
 });
 
 auction.set("timestamps", true);

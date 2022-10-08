@@ -37,8 +37,7 @@ const DutchCreateAuctionEventSubscription = async function () {
         !err &&
         result.address.toLowerCase() ===
           config.NETWORK_CONFIG.DUTCH_CONTRACT_ADDRESS.toLowerCase() &&
-        result.topics[0] ===
-          '0xe793ffbd8d1d9749a0cdd9b308cea8716ce980a0fd4c6d3ff797fee30b6b8d36'
+        result.topics[0] === config.EVENT_TOPIC_SIGNATURES.DUTCH_AUCTION_CREATE
       ) {
         console.log('result 1', result);
         auctionID = web3.eth.abi.decodeParameter('uint256', result.topics[1]);
@@ -64,8 +63,7 @@ const DutchCreateAuctionEventSubscription = async function () {
         !err &&
         result2.address.toLowerCase() ===
           config.NETWORK_CONFIG.PROXY_ADDRESS.toLowerCase() &&
-        result2.topics[0] ===
-          '0xaa53b7d866501db7f1ccfc14acad91862e63106905d565bf9fd2f4800505f6b1'
+        result2.topics[0] === config.EVENT_TOPIC_SIGNATURES.AUCTION_CREATE_PROXY
       ) {
         console.log('result 2', result2);
         const auctionTypeHex = '0x' + result2.data.substring(194);
@@ -119,8 +117,7 @@ const DutchCreateAuctionEventSubscription = async function () {
           !err &&
           result3.address.toLowerCase() ===
             config.NETWORK_CONFIG.PROXY_ADDRESS.toLowerCase() &&
-            result3.topics[0] ===
-            "0xc294e1b1839fd6d46673b4b12423aeda38a49c5b1b6c2538625de4c52104eefb"
+            result3.topics[0] === config.EVENT_TOPIC_SIGNATURES.BASKET_AUCTION_CREATE_PROXY
         ) {
   
          console.log("Result basket auction from Dutch ",result3);
@@ -192,8 +189,7 @@ const DutchConfigureAuctionEventSubscription = async function () {
         !err &&
         result.address.toLowerCase() ===
           config.NETWORK_CONFIG.DUTCH_CONTRACT_ADDRESS.toLowerCase() &&
-        result.topics[0] ===
-          '0x255ccde09f1e6a77a079ebaf1a0ccbc1818536941c520900a72cf02320212cad'
+        result.topics[0] === config.EVENT_TOPIC_SIGNATURES.DUTCH_CONFIGURE_AUCTION
       ) {
         console.log('result Configure ', result);
         const seenTx = await seenTransactionModel.findOne({
@@ -265,8 +261,7 @@ const DutchAcceptPriceEventSubscription = async function () {
         !err &&
         result.address.toLowerCase() ===
           config.NETWORK_CONFIG.DUTCH_CONTRACT_ADDRESS.toLowerCase() &&
-        result.topics[0] ===
-          '0x62a3911748f292afd602f561751a05168762f64ee07098921650dba582fca0d6'
+        result.topics[0] === config.EVENT_TOPIC_SIGNATURES.DUTCH_ACCEPT_PRICE
       ) {
         console.log('result Bid ', result);
         const seenTx = await seenTransactionModel.findOne({
@@ -310,8 +305,7 @@ const DutchAuctionCancelEventSubscription = async function () {
         !err &&
         result.address.toLowerCase() ===
           config.NETWORK_CONFIG.DUTCH_CONTRACT_ADDRESS.toLowerCase() &&
-        result.topics[0] ===
-          '0x1d30295566a0ab516b4cd02b8875bb7e3c7e83307b7cdeb0966216825ab5e4be'
+        result.topics[0] === config.EVENT_TOPIC_SIGNATURES.DUTCH_AUCTION_CANCEL
       ) {
         console.log('result cancel auction ', result);
         const seenTx = await seenTransactionModel.findOne({
