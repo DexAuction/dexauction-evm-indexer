@@ -617,8 +617,7 @@ const initScrapeDutchAuctionEventLogs = async function (lastSeenBlockRes) {
 };
 
 async function _createAuction(
-  txHash,
-  EventLog,
+  eventLog,
   auctionID,
   auctionOwner,
   auctiontype,
@@ -654,17 +653,16 @@ async function _createAuction(
     await dbAuction.save();
   }
   const seentx = new seenTransactionModel({
-    transactionHash: EventLog.transactionHash,
-    blockNumber: EventLog.blockNumber,
-    eventLog: EventLog,
+    transactionHash: eventLog.transactionHash,
+    blockNumber: eventLog.blockNumber,
+    eventLog: eventLog,
     state: 'APPLIED',
   });
   await seentx.save();
 }
 
 async function _createBasketAuction(
-  txHash,
-  EventLog,
+  eventLog,
   auctionID,
   auctionOwner,
   auctionType,
@@ -674,37 +672,40 @@ async function _createBasketAuction(
   let getBasket = await basketModel.findOne({
       basketId:basketId
   });
-    if(getBasket){
-      console.log(" ### Create Dutch Basket Auction ### ");
-      const dbAuction = new auctionModel({
-        auctionId: auctionID,
-        seller: auctionOwner,
-        state: 'NOT-STARTED',
-        auctionType: auctionType,
-        basketId: basketId,
-        fk_basketId: getBasket._id,
-        dutchAuctionAttribute: {
-          opening_price: 0,
-          round_duration: 0,
-          start_timestamp: startTime * 1000,
-          start_datetime: new Date(startTime * 1000),
-          reserve_price: 0,
-          drop_amount: 0,
-          winning_bid: 0,
-        },
-      });
-      await dbAuction.save();
-    
-      //update basket with auction details
-       getBasket = await basketModel.findOne({
-        basketId:basketId
+  if(getBasket){
+    console.log(" ### Create Dutch Basket Auction ### ");
+    const dbAuction = new auctionModel({
+      auctionId: auctionID,
+      seller: auctionOwner,
+      state: 'NOT-STARTED',
+      auctionType: auctionType,
+      basketId: basketId,
+      fk_basketId: getBasket._id,
+      dutchAuctionAttribute: {
+        opening_price: 0,
+        round_duration: 0,
+        start_timestamp: startTime * 1000,
+        start_datetime: new Date(startTime * 1000),
+        reserve_price: 0,
+        drop_amount: 0,
+        winning_bid: 0,
+      },
     });
-       await getBasket.update({auctionId:auctionID,fk_auctionId:dbAuction._id});
-    }
+    await dbAuction.save();
+  
+    //update basket with auction details
+    await basketModel.updateOne(
+      { basketId:basketId },
+      {
+        auctionId:auctionID, 
+        fk_auctionId:dbAuction._id
+      }
+    );
+  }
   const seentx = new seenTransactionModel({
-    transactionHash: EventLog.transactionHash,
-    blockNumber: EventLog.blockNumber,
-    eventLog: EventLog,
+    transactionHash: eventLog.transactionHash,
+    blockNumber: eventLog.blockNumber,
+    eventLog: eventLog,
     state: 'APPLIED',
   });
   await seentx.save();
@@ -712,7 +713,7 @@ async function _createBasketAuction(
 
 
 async function _configureAuction(
-  element,
+  eventLog,
   auctionID,
   openingPriceDecode,
   roundDuration,
@@ -736,18 +737,18 @@ async function _configureAuction(
     },
   );
 
-  await listAssetHistoryHelper(auctionID, AUCTION.DUTCH_AUCTION,element);
+  await listAssetHistoryHelper(eventLog, auctionID, AUCTION.DUTCH_AUCTION);
 
   const seentxConfigure = new seenTransactionModel({
-    transactionHash: element.transactionHash,
-    blockNumber: element.blockNumber,
-    eventLog: element,
+    transactionHash: eventLog.transactionHash,
+    blockNumber: eventLog.blockNumber,
+    eventLog: eventLog,
     state: 'APPLIED',
   });
   await seentxConfigure.save();
 }
 
-async function _acceptPrice(element, auctionId, winBid, auctionWinner) {
+async function _acceptPrice(eventLog, auctionId, winBid, auctionWinner) {
   await auctionModel.updateMany(
     { auctionId: auctionId },
     {
@@ -762,19 +763,19 @@ async function _acceptPrice(element, auctionId, winBid, auctionWinner) {
 await changeOwnership(auctionId,auctionWinner);
  
 //make entry in asset history
- await transferAssetHistoryHelper(auctionId,AUCTION.DUTCH_AUCTION,element,winBid,auctionWinner);
+ await transferAssetHistoryHelper(eventLog,auctionId,AUCTION.DUTCH_AUCTION,winBid,auctionWinner);
 
 
   const seentxPriceAccept = new seenTransactionModel({
-    transactionHash: element.transactionHash,
-    blockNumber: element.blockNumber,
-    eventLog: element,
+    transactionHash: eventLog.transactionHash,
+    blockNumber: eventLog.blockNumber,
+    eventLog: eventLog,
     state: 'APPLIED',
   });
   await seentxPriceAccept.save();
 }
 
-async function _cancelAuction(element, auctionId) {
+async function _cancelAuction(eventLog, auctionId) {
   await auctionModel.updateOne(
     { auctionId: auctionId },
     {
@@ -784,12 +785,12 @@ async function _cancelAuction(element, auctionId) {
   );
 
   //make entry in asset history
-  await cancelListAssetHistoryHelper(auctionId,AUCTION.DUTCH_AUCTION,element);
+  await cancelListAssetHistoryHelper(eventLog, auctionId, AUCTION.DUTCH_AUCTION);
 
   const seentxCancel = new seenTransactionModel({
-    transactionHash: element.transactionHash,
-    blockNumber: element.blockNumber,
-    eventLog: element,
+    transactionHash: eventLog.transactionHash,
+    blockNumber: eventLog.blockNumber,
+    eventLog: eventLog,
     state: 'APPLIED',
   });
   await seentxCancel.save();

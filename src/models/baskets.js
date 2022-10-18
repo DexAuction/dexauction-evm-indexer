@@ -42,15 +42,6 @@ const basket = new mongoose.Schema({
       },
     ],
   },
-
-  auctionId: {
-    type: Number,
-  },
-
-  fk_auctionId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'auctions',
-  },
 });
 basket.set('timestamps', true);
 module.exports = mongoose.model('baskets', basket);

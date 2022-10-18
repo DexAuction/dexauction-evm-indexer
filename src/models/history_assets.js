@@ -11,12 +11,27 @@ const assetHistory = new mongoose.Schema({
         type: String,
         enum: [LIST, MINT, TRANSFER,CANCEL_LIST],
       },
-      price: Number,
-      event_date: String,
-      event_time: String,
-      from: String,
-      to: String,
-      actions: String,
+      price: {
+        type: Number,
+      },
+      event_date: {
+        type: String,
+      },
+      event_time: {
+        type: String,
+      },
+      from: {
+        type: String,
+      },
+      to: {
+        type: String,
+      },
+      assetQuantity: {
+        type: Number,
+      },
+      actions: {
+        type: String,
+      },
     },
   ],
 });

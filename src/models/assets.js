@@ -15,8 +15,8 @@ const asset = new mongoose.Schema({
   assetTokenId: {
     type: Number,
   },
-  mintedAt: {
-    type: String,
+  assetQuantity: {
+    type: Number,
   },
   mintedBy: {
     type: String,

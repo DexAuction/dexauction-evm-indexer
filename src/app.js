@@ -37,6 +37,7 @@ const {
 
 const {
   NftTransferEventSubscription,
+  ERC1155NftTransferEventSubscription,
   initScrapeNftContractEventLogs,
 } = require("./services/NFTContractEvents");
 
@@ -46,10 +47,10 @@ const {
 } = require("./services/BasketEvents")
 // initialize function to initialize the block indexer
 async function initialize() {
-  const NFTcontracts = await nftContractModel.find();
-  const lastSeenBlockInstance = await last_seen_blocks.findOne();
   await seedDbEntriesLastSeenBlock();
   await seedDbEntriesNFT();
+  const NFTcontracts = await nftContractModel.find();
+  const lastSeenBlockInstance = await last_seen_blocks.findOne();
 
   await initScrapeNftContractEventLogs(NFTcontracts);
   await initScrapeEnglishAuctionEventLogs(lastSeenBlockInstance);
@@ -69,6 +70,7 @@ async function eventSubscriptions() {
   await DutchAcceptPriceEventSubscription();
   await DutchAuctionCancelEventSubscription();
   await NftTransferEventSubscription();
+  await ERC1155NftTransferEventSubscription();
   await BasketCreateEventSubscription();
 }
 

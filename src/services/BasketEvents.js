@@ -16,8 +16,6 @@ let ProxyContract = new web3.eth.Contract(
 const BasketCreateEventSubscription = async function () {
   await updateLastSyncedBlock();
 
-  let basketId;
-
   const subscribingCreateBasket = await web3.eth.subscribe(
     "logs",
     {
@@ -254,21 +252,21 @@ const initScrapeCreateBasketEventLogs = async function (lastSeenBlockRes) {
 };
 
 async function _createBasketHelper(
-  EventLog,
+  eventLog,
   basketId,
   nftContracts,
   tokenIds,
   quantities
 ) {
   const seentx = new seenTransactionModel({
-    transactionHash: EventLog.transactionHash,
-    blockNumber: EventLog.blockNumber,
-    eventLog: EventLog,
+    transactionHash: eventLog.transactionHash,
+    blockNumber: eventLog.blockNumber,
+    eventLog: eventLog,
     state: "APPLIED",
   });
   await seentx.save();
   createBasketHelper(
-    EventLog,
+    eventLog,
     basketId,
     nftContracts,
     tokenIds,
