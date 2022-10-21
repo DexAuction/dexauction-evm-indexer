@@ -44,9 +44,11 @@ async function createAssetHelper(
     };
 
     let getTokenURI;
+
     switch (dbCollection.tokenStandard) {
       // ERC721
       case config.SUPPORTED_TOKEN_STANDARDS.ERC721: {
+        // Get Token URI by calling Smart Contract function
         getTokenURI = await NFTContractInstance.methods
           .tokenURI(assetTokenId)
           .call();
@@ -55,6 +57,22 @@ async function createAssetHelper(
 
       // ERC1155
       case config.SUPPORTED_TOKEN_STANDARDS.ERC1155: {
+        // (contractAddr, tokenId, owner) will identify unique asset
+        const dbAssetExist = await assetModel.findOne({
+          assetContractAddress: dbCollection.contractAddress,
+          assetTokenId: assetTokenId,
+          owner: assetOwner,
+        });
+
+        // If same asset already exists for owner just update the quantity
+        if (dbAssetExist) {
+          const updatedQuantity = parseInt(dbAssetExist.assetQuantity) + parseInt(assetQuantity);
+          await dbAssetExist.update({ assetQuantity: updatedQuantity });
+
+          return dbAssetExist.assetId;
+        }
+
+        // Get Token URI by calling Smart Contract function
         getTokenURI = await NFTContractInstance.methods
           .uri(assetTokenId)
           .call();
@@ -64,6 +82,7 @@ async function createAssetHelper(
         break;
     }
 
+    // Get and update MetadataJSON if TokenURI is present
     if (getTokenURI) {
       assetEntry['metadataURL'] = getTokenURI;
       const resp = await axios.get(getTokenURI);
@@ -82,13 +101,7 @@ async function createAssetHelper(
     await dbAsset.save();
 
     // Make empty entry in asset history table
-    const history = {
-      assetId: dbAsset.assetId,
-      history: [],
-    };
-    console.log('### Empty history in asset history table ###');
-    const dbAssetHistory = new assetHistoryModel(history);
-    await dbAssetHistory.save();
+    await emptyAssetHistoryHelper(dbAsset.assetId);
 
     return dbAsset.assetId;
   } catch (err) {
@@ -96,7 +109,12 @@ async function createAssetHelper(
   }
 }
 
-async function createBasketHelper(basketId, nftContracts, tokenIds, quantites) {
+async function createBasketHelper(
+  basketId,
+  nftContracts,
+  tokenIds,
+  quantities,
+) {
   try {
     const getBasket = await basketModel.findOne({
       basketId: basketId,
@@ -128,7 +146,7 @@ async function createBasketHelper(basketId, nftContracts, tokenIds, quantites) {
       basketId: basketId,
       contractAddresses: nftContracts,
       assetTokenIds: tokenIds,
-      quantities: quantites,
+      quantities: quantities,
       collectionIds: collectionIds,
       fk_collectionIds: fk_collectionIds,
       assetIds: assetIds,
@@ -141,17 +159,29 @@ async function createBasketHelper(basketId, nftContracts, tokenIds, quantites) {
   }
 }
 
-async function mintAssetHistoryHelper(eventLog, assetId) {
+async function emptyAssetHistoryHelper(assetId) {
+  const dbAsset = await assetModel.findOne({assetId: assetId});
+
+  const history = {
+    assetId: dbAsset.assetId,
+    history: [],
+  };
+  console.log('### Empty history in asset history table ###');
+  const dbAssetHistory = new assetHistoryModel(history);
+  await dbAssetHistory.save();
+}
+
+async function mintAssetHistoryHelper(eventLog, assetId, mintQuantity) {
   const dbAsset = await assetModel.findOne({ assetId: assetId });
 
   const assetHistoryParams = {
-    event_date: dbAsset.createdAt.toLocaleDateString(),
-    event_time: dbAsset.createdAt.toLocaleTimeString([], {
+    event_date: dbAsset.updatedAt.toLocaleDateString(),
+    event_time: dbAsset.updatedAt.toLocaleTimeString([], {
       hour: '2-digit',
       minute: '2-digit',
     }),
     to: dbAsset.owner,
-    assetQuantity: dbAsset.assetQuantity,
+    assetQuantity: mintQuantity,
     actions: config.POLYGON_EXPLORER + '/' + eventLog.transactionHash,
   };
   await assetHistoryDbHelper(assetId, MINT, assetHistoryParams);
@@ -172,7 +202,7 @@ async function listAssetHistoryHelper(eventLog, auctionId, auctionType) {
       eventLog,
       dbAuction,
       dbAsset.assetId,
-      dbAsset.assetQuantity,
+      dbAuction.assetQuantity,
       priceVal,
     );
   } else if (dbAuction.basketId) {
@@ -197,63 +227,36 @@ async function transferAssetHistoryHelper(
   winner,
 ) {
   const dbAuction = await auctionModel.findOne({ auctionId: auctionId });
+
   if (dbAuction.assetId) {
     const dbAsset = await assetModel.findById(dbAuction.fk_assetId);
-    const dbCollection = await collectionModel.findById(dbAsset.fk_collectionId);
-
-    switch (dbCollection.tokenStandard) {
-      // ERC721
-      case config.SUPPORTED_TOKEN_STANDARDS.ERC721: {
-        await transferAssetHistoryDbHelper(
-          eventLog,
-          dbAuction,
-          dbAsset.assetId,
-          dbAuction.assetQuantity,
-          winningBid,
-          winner,
-        );
-        break;
-      }
-
-      // ERC1155
-      case config.SUPPORTED_TOKEN_STANDARDS.ERC1155: {
-        // Make entry on seller's asset history
-        await transferAssetHistoryDbHelper(
-          eventLog,
-          dbAuction,
-          dbAsset.assetId,
-          dbAuction.assetQuantity,
-          winningBid,
-          winner,
-        );
-
-        // Make entry on winner's asset history
-        const dbAssetNewOwner = await assetModel.findOne({
-          assetContractAddress: dbCollection.contractAddress,
-          assetTokenId: dbAsset.assetTokenId,
-          owner: winner,
-        });
-        await transferAssetHistoryDbHelper(
-          eventLog,
-          dbAuction,
-          dbAssetNewOwner.assetId,
-          dbAuction.assetQuantity,
-          winningBid,
-          winner,
-        );
-        break;
-      }
-      default:
-        break;
-    }
+    const dbCollection = await collectionModel.findById(
+      dbAsset.fk_collectionId,
+    );
+    await _transferAssetHistoryHelper(
+      eventLog,
+      dbAuction,
+      dbCollection,
+      dbAsset.assetId,
+      dbAsset.assetTokenId,
+      dbAuction.assetQuantity,
+      winningBid,
+      winner,
+    );
   } else if (dbAuction.basketId) {
     const dbBasket = await basketModel.findById(dbAuction.fk_basketId);
 
     for (let i = 0; i < dbBasket.assetIds.length; i++) {
-      await transferAssetHistoryDbHelper(
+      const dbCollection = await collectionModel.findById(
+        dbBasket.fk_collectionIds[i],
+      );
+
+      await _transferAssetHistoryHelper(
         eventLog,
         dbAuction,
+        dbCollection,
         dbBasket.assetIds[i],
+        dbBasket.assetTokenIds[i],
         dbBasket.quantities[i],
         winningBid,
         winner,
@@ -321,7 +324,7 @@ async function changeOwnership(auctionId, newOwner) {
       const dbCollection = await collectionModel.findById(
         dbBasket.fk_collectionIds[i],
       );
-      const auctionAssetQuantity = dbBasket.quantites[i];
+      const auctionAssetQuantity = dbBasket.quantities[i];
 
       _changeOwnership(
         dbAssetOldOwner,
@@ -351,59 +354,89 @@ async function _changeOwnership(
 
     // ERC1155
     case config.SUPPORTED_TOKEN_STANDARDS.ERC1155: {
-      // (contractAddress, tokenId, owner) combination will be unique for ERC1155
+      // Create asset entry for newOwner with assetQuantity from auction
+      const nftContract = await NFTContractsModel.findOne({
+        tokenContract: dbCollection.contractAddress,
+      });
+      const nftContractInstance = new web3.eth.Contract(
+        JSON.parse(nftContract.abi),
+        nftContract.tokenContract,
+      );
+      await createAssetHelper(
+        dbAssetOldOwner.assetTokenId,
+        auctionAssetQuantity,
+        newOwner,
+        dbAssetOldOwner.mintedBy,
+        nftContract,
+        nftContractInstance,
+        dbCollection,
+      );
+
+      // Decrease assetQuantity in oldOwner
+      const updatedAssetQuantityOldOwner =
+        parseInt(dbAssetOldOwner.assetQuantity) - parseInt(auctionAssetQuantity);
+
+      await assetModel.updateOne(
+        { assetId: dbAssetOldOwner.assetId },
+        { assetQuantity: updatedAssetQuantityOldOwner },
+      );
+      break;
+    }
+    default:
+      break;
+  }
+}
+
+async function _transferAssetHistoryHelper(
+  eventLog,
+  dbAuction,
+  dbCollection,
+  assetId,
+  assetTokenId,
+  transferAssetQuantity,
+  winningBid,
+  winner,
+) {
+  switch (dbCollection.tokenStandard) {
+    // ERC721
+    case config.SUPPORTED_TOKEN_STANDARDS.ERC721: {
+      await transferAssetHistoryDbHelper(
+        eventLog,
+        dbAuction,
+        assetId,
+        transferAssetQuantity,
+        winningBid,
+        winner,
+      );
+      break;
+    }
+
+    // ERC1155
+    case config.SUPPORTED_TOKEN_STANDARDS.ERC1155: {
+      // Make entry on seller's asset history
+      await transferAssetHistoryDbHelper(
+        eventLog,
+        dbAuction,
+        assetId,
+        transferAssetQuantity,
+        winningBid,
+        winner,
+      );
+
+      // Make entry on winner's asset history
       const dbAssetNewOwner = await assetModel.findOne({
         assetContractAddress: dbCollection.contractAddress,
-        assetTokenId: dbAssetOldOwner.assetTokenId,
-        owner: newOwner,
+        assetTokenId: assetTokenId,
+        owner: winner,
       });
-
-      if (dbAssetNewOwner) {
-        // Increase assetQuantity in newOwner
-        const updatedAssetQuantityNewOwner =
-          dbAssetNewOwner.assetQuantity + auctionAssetQuantity;
-
-        await assetModel.updateOne(
-          { assetId: dbAssetNewOwner.assetId },
-          updatedAssetQuantityNewOwner,
-        );
-
-        // Decrease assetQuantity in oldOwner
-        const updatedAssetQuantityOldOwner =
-          dbAssetOldOwner.assetQuantity - auctionAssetQuantity;
-
-        await assetModel.updateOne(
-          { assetId: dbAssetOldOwner.assetId },
-          { assetQuantity: updatedAssetQuantityOldOwner },
-        );
-      } else {
-        // Create new asset entry for newOwner with assetQuantity from auction
-        const nftContract = await NFTContractsModel.findOne({
-          tokenContract: dbCollection.contractAddress,
-        });
-        const nftContractInstance = new web3.eth.Contract(
-          JSON.parse(nftContract.abi),
-          nftContract.tokenContract,
-        );
-        await createAssetHelper(
-          dbAssetOldOwner.assetTokenId,
-          auctionAssetQuantity,
-          newOwner,
-          dbAssetOldOwner.mintedBy,
-          nftContract,
-          nftContractInstance,
-          dbCollection,
-        );
-
-        // Decrease assetQuantity in oldOwner
-        const updatedAssetQuantityOldOwner =
-          dbAssetOldOwner.assetQuantity - auctionAssetQuantity;
-
-        await assetModel.updateOne(
-          { assetId: dbAssetOldOwner.assetId },
-          { assetQuantity: updatedAssetQuantityOldOwner },
-        );
-      }
+      await transferAssetHistoryDbHelper(
+        eventLog,
+        dbAuction,
+        dbAssetNewOwner.assetId,
+        dbAuction.assetQuantity,
+        winningBid,
+        winner,
+      );
       break;
     }
     default:
@@ -420,8 +453,8 @@ async function transferAssetHistoryDbHelper(
   winner,
 ) {
   const assetHistoryParams = {
-    event_date: dbAuction.createdAt.toLocaleDateString(),
-    event_time: dbAuction.createdAt.toLocaleTimeString([], {
+    event_date: dbAuction.updatedAt.toLocaleDateString(),
+    event_time: dbAuction.updatedAt.toLocaleTimeString([], {
       hour: '2-digit',
       minute: '2-digit',
     }),
@@ -442,8 +475,8 @@ async function listAssetHistoryDbHelper(
   price,
 ) {
   const assetHistoryParams = {
-    event_date: dbAuction.createdAt.toLocaleDateString(),
-    event_time: dbAuction.createdAt.toLocaleTimeString([], {
+    event_date: dbAuction.updatedAt.toLocaleDateString(),
+    event_time: dbAuction.updatedAt.toLocaleTimeString([], {
       hour: '2-digit',
       minute: '2-digit',
     }),
@@ -463,8 +496,8 @@ async function cancelListAssetHistoryDbHelper(
   price,
 ) {
   const assetHistoryParams = {
-    event_date: dbAuction.createdAt.toLocaleDateString(),
-    event_time: dbAuction.createdAt.toLocaleTimeString([], {
+    event_date: dbAuction.updatedAt.toLocaleDateString(),
+    event_time: dbAuction.updatedAt.toLocaleTimeString([], {
       hour: '2-digit',
       minute: '2-digit',
     }),

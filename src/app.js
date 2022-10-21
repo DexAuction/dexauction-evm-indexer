@@ -22,7 +22,7 @@ const {
   EnglishConfigureAuctionEventSubscription,
   EnglishPlaceBidEventSubscription,
   EnglishAuctionCancelEventSubscription,
-  EnglishAuctionEndEventSubscription,
+  // EnglishAuctionEndEventSubscription,
   EnglishAuctionCompleteEventSubscription,
   initScrapeEnglishAuctionEventLogs,
 } = require("./services/EnglishAuctionEvents");
@@ -63,7 +63,7 @@ async function eventSubscriptions() {
   await EnglishConfigureAuctionEventSubscription();
   await EnglishPlaceBidEventSubscription();
   await EnglishAuctionCancelEventSubscription();
-  await EnglishAuctionEndEventSubscription();
+  // await EnglishAuctionEndEventSubscription();
   await EnglishAuctionCompleteEventSubscription();
   await DutchCreateAuctionEventSubscription();
   await DutchConfigureAuctionEventSubscription();

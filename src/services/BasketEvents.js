@@ -266,7 +266,6 @@ async function _createBasketHelper(
   });
   await seentx.save();
   createBasketHelper(
-    eventLog,
     basketId,
     nftContracts,
     tokenIds,

@@ -763,7 +763,7 @@ async function _acceptPrice(eventLog, auctionId, winBid, auctionWinner) {
 await changeOwnership(auctionId,auctionWinner);
  
 //make entry in asset history
- await transferAssetHistoryHelper(eventLog,auctionId,AUCTION.DUTCH_AUCTION,winBid,auctionWinner);
+ await transferAssetHistoryHelper(eventLog,auctionId,winBid,auctionWinner);
 
 
   const seentxPriceAccept = new seenTransactionModel({

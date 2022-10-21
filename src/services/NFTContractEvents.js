@@ -15,7 +15,8 @@ const {
 const NftTransferEventSubscription = async function () {
   await updateLastSyncedBlock();
 
-  const subscribingNftTransfer = await web3.eth.subscribe(
+  // Subscribing ERC721 Nft Transfer event 
+  await web3.eth.subscribe(
     "logs",
     {
       address: [
@@ -40,6 +41,7 @@ const NftTransferEventSubscription = async function () {
           return;
         }
 
+        console.log(`decoding ${DECENTRALAND_NFT_CONTRACT_ABI[3]['name']} eventLogs`);
         const decodedData = web3.eth.abi.decodeLog(
           DECENTRALAND_NFT_CONTRACT_ABI[3]['inputs'], 
           result.data, 
@@ -75,7 +77,8 @@ const NftTransferEventSubscription = async function () {
 const ERC1155NftTransferEventSubscription = async function () {
   await updateLastSyncedBlock();
 
-  const subscribingERC1155NftTransferSingle = await web3.eth.subscribe(
+  // Subscribing ERC1155 TransferSingle event
+  await web3.eth.subscribe(
     'logs',
     {
       address: config.NETWORK_CONFIG.ERC1155_NFT_CONTRACT_ADDRESS.toLowerCase(),
@@ -97,6 +100,7 @@ const ERC1155NftTransferEventSubscription = async function () {
           return;
         }
 
+        console.log(`decoding ${ERC1155_NFT_CONTRACT_ABI[3]['name']} eventLogs`);
         const decodedData = web3.eth.abi.decodeLog(
           ERC1155_NFT_CONTRACT_ABI[3]['inputs'], 
           result.data, 
@@ -371,7 +375,7 @@ async function _createAsset(
     dbCollection
   );
   
-  await mintAssetHistoryHelper(eventLog, assetId);
+  await mintAssetHistoryHelper(eventLog, assetId, quantity);
 
   const seentx = new seenTransactionModel({
     transactionHash: eventLog.transactionHash,
