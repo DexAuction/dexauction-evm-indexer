@@ -6,6 +6,8 @@ const {
   TRANSFER,
   CANCEL_LIST,
   AUCTION,
+  SUPPORTED_TOKEN_STANDARDS,
+  SUPPORTED_TOKEN_STANDARDS_ENUM
 } = require('../constants');
 const Web3 = require('web3');
 const config = require('../config');
@@ -47,7 +49,7 @@ async function createAssetHelper(
 
     switch (dbCollection.tokenStandard) {
       // ERC721
-      case config.SUPPORTED_TOKEN_STANDARDS.ERC721: {
+      case SUPPORTED_TOKEN_STANDARDS.ERC721: {
         // Get Token URI by calling Smart Contract function
         getTokenURI = await NFTContractInstance.methods
           .tokenURI(assetTokenId)
@@ -56,7 +58,7 @@ async function createAssetHelper(
       }
 
       // ERC1155
-      case config.SUPPORTED_TOKEN_STANDARDS.ERC1155: {
+      case SUPPORTED_TOKEN_STANDARDS.ERC1155: {
         // (contractAddr, tokenId, owner) will identify unique asset
         const dbAssetExist = await assetModel.findOne({
           assetContractAddress: dbCollection.contractAddress,
@@ -114,6 +116,8 @@ async function createBasketHelper(
   nftContracts,
   tokenIds,
   quantities,
+  basketOwner,
+  tokenStandards
 ) {
   try {
     const getBasket = await basketModel.findOne({
@@ -135,15 +139,23 @@ async function createBasketHelper(
       });
       collectionIds.push(getCollection.collectionId);
       fk_collectionIds.push(getCollection._id);
-      const getAsset = await assetModel.findOne({
+
+      let dbAssetQuery = {
         assetContractAddress: nftContracts[i],
-        assetTokenId: tokenIds[i],
-      });
-      assetIds.push(getAsset.assetId);
-      fk_assetsIds.push(getAsset._id);
+        assetTokenId: tokenIds[i]
+      }
+      // (contract,tokenId,Owner) identify unique ERC1155 asset 
+      if(tokenStandards[i]===SUPPORTED_TOKEN_STANDARDS_ENUM.ERC1155) {  
+        dbAssetQuery['owner'] = basketOwner;
+      }
+      const dbAsset = await assetModel.findOne(dbAssetQuery);
+      assetIds.push(dbAsset.assetId);
+      fk_assetsIds.push(dbAsset._id);
     }
+
     const dbBasket = {
       basketId: basketId,
+      basketOwner: basketOwner,
       contractAddresses: nftContracts,
       assetTokenIds: tokenIds,
       quantities: quantities,
@@ -280,7 +292,7 @@ async function cancelListAssetHistoryHelper(eventLog, auctionId, auctionType) {
       eventLog,
       dbAuction,
       dbAsset.assetId,
-      dbAsset.assetQuantity,
+      dbAuction.assetQuantity,
       priceVal,
     );
   } else if (dbAuction.basketId) {
@@ -344,7 +356,7 @@ async function _changeOwnership(
 ) {
   switch (dbCollection.tokenStandard) {
     // ERC721
-    case config.SUPPORTED_TOKEN_STANDARDS.ERC721: {
+    case SUPPORTED_TOKEN_STANDARDS.ERC721: {
       await assetModel.updateOne(
         { assetId: dbAssetOldOwner.assetId },
         { owner: newOwner },
@@ -353,7 +365,7 @@ async function _changeOwnership(
     }
 
     // ERC1155
-    case config.SUPPORTED_TOKEN_STANDARDS.ERC1155: {
+    case SUPPORTED_TOKEN_STANDARDS.ERC1155: {
       // Create asset entry for newOwner with assetQuantity from auction
       const nftContract = await NFTContractsModel.findOne({
         tokenContract: dbCollection.contractAddress,
@@ -399,7 +411,7 @@ async function _transferAssetHistoryHelper(
 ) {
   switch (dbCollection.tokenStandard) {
     // ERC721
-    case config.SUPPORTED_TOKEN_STANDARDS.ERC721: {
+    case SUPPORTED_TOKEN_STANDARDS.ERC721: {
       await transferAssetHistoryDbHelper(
         eventLog,
         dbAuction,
@@ -412,7 +424,7 @@ async function _transferAssetHistoryHelper(
     }
 
     // ERC1155
-    case config.SUPPORTED_TOKEN_STANDARDS.ERC1155: {
+    case SUPPORTED_TOKEN_STANDARDS.ERC1155: {
       // Make entry on seller's asset history
       await transferAssetHistoryDbHelper(
         eventLog,
@@ -433,7 +445,7 @@ async function _transferAssetHistoryHelper(
         eventLog,
         dbAuction,
         dbAssetNewOwner.assetId,
-        dbAuction.assetQuantity,
+        transferAssetQuantity,
         winningBid,
         winner,
       );

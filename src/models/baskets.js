@@ -5,6 +5,10 @@ const basket = new mongoose.Schema({
     type: Number,
   },
 
+  basketOwner: {
+    type: String,
+  },
+
   contractAddresses: {
     type: [String],
   },

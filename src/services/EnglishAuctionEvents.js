@@ -1,4 +1,3 @@
-const res = require('express/lib/response');
 const Web3 = require('web3');
 const config = require('../config');
 const web3 = new Web3(config.NETWORK_CONFIG.WS_NETWORK_URL);
@@ -6,10 +5,15 @@ const auctionModel = require('../models/auctions');
 const lastSeenBlocksModel = require('../models/last_seen_blocks');
 const seenTransactionModel = require('../models/seenTransaction');
 const assetsModel = require('../models/assets');
-const basketModel = require('../models/baskets')
+const basketModel = require('../models/baskets');
 const { ENGLISH_AUCTION_ABI, PROXY_AUCTION_ABI } = require('../abi');
 const { AUCTION } = require('../constants');
-const { listAssetHistoryHelper, changeOwnership, transferAssetHistoryHelper, cancelListAssetHistoryHelper } = require('../helper/utils');
+const {
+  listAssetHistoryHelper,
+  changeOwnership,
+  transferAssetHistoryHelper,
+  cancelListAssetHistoryHelper,
+} = require('../helper/utils');
 
 const EnglishAuctionContract = new web3.eth.Contract(
   ENGLISH_AUCTION_ABI,
@@ -38,13 +42,14 @@ const EnglishCreateAuctionEventSubscription = async function () {
         !err &&
         result.address.toLowerCase() ===
           config.NETWORK_CONFIG.ENGLISH_AUCTION_ADDRESS.toLowerCase() &&
-        result.topics[0] === config.EVENT_TOPIC_SIGNATURES.ENGLISH_AUCTION_CREATE
+        result.topics[0] ===
+          config.EVENT_TOPIC_SIGNATURES.ENGLISH_AUCTION_CREATE
       ) {
         console.log(`decoding ${ENGLISH_AUCTION_ABI[4]['name']} eventLogs`);
         const decodedData = web3.eth.abi.decodeLog(
-          ENGLISH_AUCTION_ABI[4]['inputs'], 
-          result.data, 
-          result.topics.slice(1)
+          ENGLISH_AUCTION_ABI[4]['inputs'],
+          result.data,
+          result.topics.slice(1),
         );
 
         startTime = decodedData.startTime;
@@ -80,11 +85,11 @@ const EnglishCreateAuctionEventSubscription = async function () {
 
         console.log(`decoding ${PROXY_AUCTION_ABI[1]['name']} eventLogs`);
         const decodedData = web3.eth.abi.decodeLog(
-          PROXY_AUCTION_ABI[1]['inputs'], 
-          result.data, 
-          result.topics.slice(1)
+          PROXY_AUCTION_ABI[1]['inputs'],
+          result.data,
+          result.topics.slice(1),
         );
-        
+
         const auctionId = decodedData.auctionId;
         const auctionType = decodedData.auction_type;
         const auctionOwner = decodedData.auctionOwner;
@@ -114,7 +119,7 @@ const EnglishCreateAuctionEventSubscription = async function () {
 
   // Subscribing to BasketAuctionCreateProxy event
   await web3.eth.subscribe(
-    "logs",
+    'logs',
     {
       address: config.NETWORK_CONFIG.PROXY_ADDRESS.toLowerCase(),
     },
@@ -124,29 +129,29 @@ const EnglishCreateAuctionEventSubscription = async function () {
         !err &&
         result.address.toLowerCase() ===
           config.NETWORK_CONFIG.PROXY_ADDRESS.toLowerCase() &&
-          result.topics[0] === config.EVENT_TOPIC_SIGNATURES.BASKET_AUCTION_CREATE_PROXY
+        result.topics[0] ===
+          config.EVENT_TOPIC_SIGNATURES.BASKET_AUCTION_CREATE_PROXY
       ) {
-
-        console.log("Result basket auction ",result);
+        console.log('Result basket auction ', result);
 
         //check if transaction hash already exists
 
         const seenTx = await seenTransactionModel.findOne({
           transactionHash: result.transactionHash,
         });
-        console.log("seenTx", seenTx);
+        console.log('seenTx', seenTx);
         if (seenTx) {
-          console.log("transaction already applied ");
+          console.log('transaction already applied ');
           return;
         }
 
         console.log(`decoding ${PROXY_AUCTION_ABI[3]['name']} eventLogs`);
         const decodedData = web3.eth.abi.decodeLog(
-          PROXY_AUCTION_ABI[3]['inputs'], 
-          result.data, 
-          result.topics.slice(1)
+          PROXY_AUCTION_ABI[3]['inputs'],
+          result.data,
+          result.topics.slice(1),
         );
-        
+
         const auctionId = decodedData.auctionId;
         const auctionType = decodedData.auction_type;
         const auctionOwner = decodedData.auctionOwner;
@@ -154,8 +159,7 @@ const EnglishCreateAuctionEventSubscription = async function () {
 
         //save in DB
 
-        if (auctionType == "english") {
-
+        if (auctionType == 'english') {
           _createBasketAuction(
             result,
             auctionId,
@@ -163,12 +167,12 @@ const EnglishCreateAuctionEventSubscription = async function () {
             auctionType,
             basketId,
             startTime,
-            endTime
+            endTime,
           );
-          console.log("syncedblock create", config.LAST_SYNCED_BLOCK);
+          console.log('syncedblock create', config.LAST_SYNCED_BLOCK);
         }
       }
-    }
+    },
   );
 
   // function heartbeat() {
@@ -196,7 +200,8 @@ const EnglishConfigureAuctionEventSubscription = async function () {
         !err &&
         result.address.toLowerCase() ===
           config.NETWORK_CONFIG.ENGLISH_AUCTION_ADDRESS.toLowerCase() &&
-        result.topics[0] === config.EVENT_TOPIC_SIGNATURES.ENGLISH_CONFIGURE_AUCTION
+        result.topics[0] ===
+          config.EVENT_TOPIC_SIGNATURES.ENGLISH_CONFIGURE_AUCTION
       ) {
         console.log('result Configure ', result);
         const seenTx = await seenTransactionModel.findOne({
@@ -211,11 +216,11 @@ const EnglishConfigureAuctionEventSubscription = async function () {
 
         console.log(`decoding ${ENGLISH_AUCTION_ABI[3]['name']} eventLogs`);
         const decodedData = web3.eth.abi.decodeLog(
-          ENGLISH_AUCTION_ABI[3]['inputs'], 
-          result.data, 
-          result.topics.slice(1)
+          ENGLISH_AUCTION_ABI[3]['inputs'],
+          result.data,
+          result.topics.slice(1),
         );
-        
+
         const auctionId = decodedData.auctionID;
         const startTime = decodedData.startTime;
         const endTime = decodedData.endTime;
@@ -266,12 +271,12 @@ const EnglishPlaceBidEventSubscription = async function () {
           );
           return;
         }
-        
+
         console.log(`decoding ${ENGLISH_AUCTION_ABI[7]['name']} eventLogs`);
         const decodedData = web3.eth.abi.decodeLog(
-          ENGLISH_AUCTION_ABI[7]['inputs'], 
-          result.data, 
-          result.topics.slice(1)
+          ENGLISH_AUCTION_ABI[7]['inputs'],
+          result.data,
+          result.topics.slice(1),
         );
         const auctionId = decodedData.auctionID;
         const bidder = decodedData.winner;
@@ -304,8 +309,8 @@ const EnglishPlaceBidEventSubscription = async function () {
 
 //         console.log(`decoding ${ENGLISH_AUCTION_ABI[5]['name']} eventLogs`);
 //         const decodedData = web3.eth.abi.decodeLog(
-//           ENGLISH_AUCTION_ABI[5]['inputs'], 
-//           result.data, 
+//           ENGLISH_AUCTION_ABI[5]['inputs'],
+//           result.data,
 //           result.topics.slice(1)
 //         );
 //         const auctionId = decodedData.auctionID;
@@ -332,7 +337,8 @@ const EnglishAuctionCancelEventSubscription = async function () {
         !err &&
         result.address.toLowerCase() ===
           config.NETWORK_CONFIG.ENGLISH_AUCTION_ADDRESS.toLowerCase() &&
-        result.topics[0] === config.EVENT_TOPIC_SIGNATURES.ENGLISH_AUCTION_CANCEL
+        result.topics[0] ===
+          config.EVENT_TOPIC_SIGNATURES.ENGLISH_AUCTION_CANCEL
       ) {
         console.log('result cancel auction ', result);
         const seenTx = await seenTransactionModel.findOne({
@@ -347,9 +353,9 @@ const EnglishAuctionCancelEventSubscription = async function () {
 
         console.log(`decoding ${ENGLISH_AUCTION_ABI[1]['name']} eventLogs`);
         const decodedData = web3.eth.abi.decodeLog(
-          ENGLISH_AUCTION_ABI[1]['inputs'], 
-          result.data, 
-          result.topics.slice(1)
+          ENGLISH_AUCTION_ABI[1]['inputs'],
+          result.data,
+          result.topics.slice(1),
         );
         const auctionId = decodedData.auctionID;
 
@@ -374,7 +380,8 @@ const EnglishAuctionCompleteEventSubscription = async function () {
         !err &&
         result.address.toLowerCase() ===
           config.NETWORK_CONFIG.ENGLISH_AUCTION_ADDRESS.toLowerCase() &&
-        result.topics[0] === config.EVENT_TOPIC_SIGNATURES.ENGLISH_AUCTION_COMPLETE
+        result.topics[0] ===
+          config.EVENT_TOPIC_SIGNATURES.ENGLISH_AUCTION_COMPLETE
       ) {
         console.log('result complete Auction ', result);
 
@@ -391,9 +398,9 @@ const EnglishAuctionCompleteEventSubscription = async function () {
 
         console.log(`decoding ${ENGLISH_AUCTION_ABI[2]['name']} eventLogs`);
         const decodedData = web3.eth.abi.decodeLog(
-          ENGLISH_AUCTION_ABI[2]['inputs'], 
-          result.data, 
-          result.topics.slice(1)
+          ENGLISH_AUCTION_ABI[2]['inputs'],
+          result.data,
+          result.topics.slice(1),
         );
         const auctionId = decodedData.auctionID;
         const winner = decodedData.winner;
@@ -478,7 +485,8 @@ const scrapeEnglishAuctionEventLogs = async function () {
                 const auctionType = item.returnValues.auction_type;
                 const auctionOwner = item.returnValues.auctionOwner;
                 const assetTokenId = item.returnValues.tokenId;
-                const tokenContractAddress = item.returnValues.tokenContractAddress;
+                const tokenContractAddress =
+                  item.returnValues.tokenContractAddress;
                 const assetQuantity = item.returnValues.quantity;
                 promises.push(
                   _createAuction(
@@ -544,9 +552,7 @@ const scrapeEnglishAuctionEventLogs = async function () {
             const auctionId = element.returnValues.auctionID;
             const bid = element.returnValues.bid;
             const bidder = element.returnValues.winner;
-            promises.push(
-              _placeBid(element, auctionId, bidder, bid)
-            );
+            promises.push(_placeBid(element, auctionId, bidder, bid));
             break;
           }
           case 'AuctionComplete': {
@@ -639,7 +645,8 @@ const initScrapeEnglishAuctionEventLogs = async function (lastSeenBlockRes) {
                 const auctionType = item.returnValues.auction_type;
                 const auctionOwner = item.returnValues.auctionOwner;
                 const assetTokenId = item.returnValues.tokenId;
-                const tokenContractAddress = item.returnValues.tokenContractAddress;
+                const tokenContractAddress =
+                  item.returnValues.tokenContractAddress;
                 const assetQuantity = item.returnValues.quantity;
                 await _createAuction(
                   element,
@@ -651,7 +658,7 @@ const initScrapeEnglishAuctionEventLogs = async function (lastSeenBlockRes) {
                   tokenContractAddress,
                   element.returnValues.startTime,
                   element.returnValues.endTime,
-                )
+                );
               } else if (
                 item.event === 'BasketAuctionCreateProxy' &&
                 item.returnValues.auction_type === AUCTION.ENGLISH_AUCTION &&
@@ -669,7 +676,7 @@ const initScrapeEnglishAuctionEventLogs = async function (lastSeenBlockRes) {
                   basketId,
                   element.returnValues.startTime,
                   element.returnValues.endTime,
-                )
+                );
               }
             }
 
@@ -692,7 +699,7 @@ const initScrapeEnglishAuctionEventLogs = async function (lastSeenBlockRes) {
               minIncrement,
               softCloseDuration,
               buyOutPrice,
-            )
+            );
             break;
           }
           case 'PlaceBid': {
@@ -748,18 +755,18 @@ async function _createAuction(
     auctionId: auctionId,
   });
 
-  if(getAuction){
-    console.log("Auction Id already exists");
+  if (getAuction) {
+    console.log('Auction Id already exists');
     return;
   }
 
   const getAsset = await assetsModel.findOne({
     assetContractAddress: tokenContractAddress,
     assetTokenId: assetTokenId,
-    owner: auctionOwner
+    owner: auctionOwner,
   });
 
-  console.log("### Create English Auction ###");
+  console.log('### Create English Auction ###');
   const dbAuction = new auctionModel({
     auctionId: auctionId,
     assetId: getAsset.assetId,
@@ -768,7 +775,7 @@ async function _createAuction(
     assetQuantity: assetQuantity,
     tokenContract: tokenContractAddress,
     seller: auctionOwner,
-    state: "NOT-STARTED",
+    state: 'NOT-STARTED',
     auctionType: auctiontype,
     englishAuctionAttribute: {
       opening_price: 0,
@@ -788,7 +795,7 @@ async function _createAuction(
     transactionHash: eventLog.transactionHash,
     blockNumber: eventLog.blockNumber,
     eventLog: eventLog,
-    state: "APPLIED",
+    state: 'APPLIED',
   });
   await seentx.save();
 }
@@ -800,14 +807,14 @@ async function _createBasketAuction(
   auctionType,
   basketId,
   startTime,
-  endTime
+  endTime,
 ) {
   const getBasket = await basketModel.findOne({
-      basketId:basketId
+    basketId: basketId,
   });
 
-  if(getBasket) {
-    console.log(" ### Create English Basket Auction ### ");
+  if (getBasket) {
+    console.log(' ### Create English Basket Auction ### ');
 
     const dbAuction = new auctionModel({
       auctionId: auctionId,
@@ -826,7 +833,7 @@ async function _createBasketAuction(
         soft_close_duration: 0,
         buyout_price: 0,
         winning_bid: 0,
-      }
+      },
     });
     await dbAuction.save();
   }
@@ -868,7 +875,7 @@ async function _configureAuction(
     },
   );
   await listAssetHistoryHelper(eventLog, auctionId, AUCTION.ENGLISH_AUCTION);
-  
+
   const seentxConfigure = new seenTransactionModel({
     transactionHash: eventLog.transactionHash,
     blockNumber: eventLog.blockNumber,
@@ -917,11 +924,10 @@ async function _auctionComplete(eventLog, auctionId, winningBid, winner) {
   );
 
   //change owner in asset schema
-  await changeOwnership(auctionId,winner);
+  await changeOwnership(auctionId, winner);
 
   //make entry in asset history
-  await transferAssetHistoryHelper(eventLog,auctionId,winningBid,winner);
-
+  await transferAssetHistoryHelper(eventLog, auctionId, winningBid, winner);
 
   const seentxComplete = new seenTransactionModel({
     transactionHash: eventLog.transactionHash,
@@ -942,8 +948,11 @@ async function _cancelAuction(eventLog, auctionId) {
   );
 
   //make entry in asset history
- 
- await cancelListAssetHistoryHelper(eventLog, auctionId, AUCTION.ENGLISH_AUCTION);
+  await cancelListAssetHistoryHelper(
+    eventLog,
+    auctionId,
+    AUCTION.ENGLISH_AUCTION,
+  );
 
   const seentxCancel = new seenTransactionModel({
     transactionHash: eventLog.transactionHash,

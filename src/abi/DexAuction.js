@@ -119,6 +119,12 @@ module.exports = [
 				"type": "uint256"
 			},
 			{
+				"indexed": true,
+				"internalType": "address",
+				"name": "basketOwner",
+				"type": "address"
+			},
+			{
 				"components": [
 					{
 						"internalType": "address",

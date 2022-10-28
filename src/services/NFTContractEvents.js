@@ -1,23 +1,25 @@
-const res = require("express/lib/response");
-const Web3 = require("web3");
-const config = require("../config");
+const Web3 = require('web3');
+const config = require('../config');
 const web3 = new Web3(config.NETWORK_CONFIG.WS_NETWORK_URL);
-const seenTransactionModel = require("../models/seenTransaction");
-const NFTContractsModel = require("../models/NFT_contracts");
-const collectionModel = require("../models/collections");
-const { createAssetHelper, mintAssetHistoryHelper } = require("../helper/utils");
-const req = require("express/lib/request");
+const seenTransactionModel = require('../models/seenTransaction');
+const NFTContractsModel = require('../models/NFT_contracts');
+const collectionModel = require('../models/collections');
+const {
+  createAssetHelper,
+  mintAssetHistoryHelper,
+} = require('../helper/utils');
 const {
   DECENTRALAND_NFT_CONTRACT_ABI,
-  ERC1155_NFT_CONTRACT_ABI
+  ERC1155_NFT_CONTRACT_ABI,
 } = require('../abi');
+const { ZERO_ADDRESS } = require('../constants');
 
 const NftTransferEventSubscription = async function () {
   await updateLastSyncedBlock();
 
-  // Subscribing ERC721 Nft Transfer event 
+  // Subscribing ERC721 Nft Transfer event
   await web3.eth.subscribe(
-    "logs",
+    'logs',
     {
       address: [
         config.NETWORK_CONFIG.DECENTRALAND_NFT_CONTRACT_ADDRESS.toLowerCase(),
@@ -25,7 +27,9 @@ const NftTransferEventSubscription = async function () {
       ],
     },
     async function (err, result) {
-      const nftContract = await NFTContractsModel.findOne({tokenContract: result.address});
+      const nftContract = await NFTContractsModel.findOne({
+        tokenContract: result.address,
+      });
       if (
         !err &&
         nftContract &&
@@ -36,26 +40,28 @@ const NftTransferEventSubscription = async function () {
         });
         if (seenTx) {
           console.log(
-            `transaction already applied with transaction hash ${result.transactionHash}`
+            `transaction already applied with transaction hash ${result.transactionHash}`,
           );
           return;
         }
 
-        console.log(`decoding ${DECENTRALAND_NFT_CONTRACT_ABI[3]['name']} eventLogs`);
+        console.log(
+          `decoding ${DECENTRALAND_NFT_CONTRACT_ABI[3]['name']} eventLogs`,
+        );
         const decodedData = web3.eth.abi.decodeLog(
-          DECENTRALAND_NFT_CONTRACT_ABI[3]['inputs'], 
-          result.data, 
-          result.topics.slice(1)
+          DECENTRALAND_NFT_CONTRACT_ABI[3]['inputs'],
+          result.data,
+          result.topics.slice(1),
         );
 
-        if(decodedData.from === config.ZERO_ADDRESS) {
+        if (decodedData.from === ZERO_ADDRESS) {
           // save in database
           const NFTContractInstance = new web3.eth.Contract(
             JSON.parse(nftContract.abi),
-            nftContract.tokenContract
+            nftContract.tokenContract,
           );
           const dbCollection = await collectionModel.findOne({
-            contractAddress: nftContract.tokenContract
+            contractAddress: nftContract.tokenContract,
           });
 
           await _createAsset(
@@ -66,11 +72,11 @@ const NftTransferEventSubscription = async function () {
             decodedData.to,
             nftContract,
             NFTContractInstance,
-            dbCollection
+            dbCollection,
           );
         }
       }
-    }
+    },
   );
 };
 
@@ -84,58 +90,63 @@ const ERC1155NftTransferEventSubscription = async function () {
       address: config.NETWORK_CONFIG.ERC1155_NFT_CONTRACT_ADDRESS.toLowerCase(),
     },
     async function (err, result) {
-      const nftContract = await NFTContractsModel.findOne({tokenContract: result.address});
+      const nftContract = await NFTContractsModel.findOne({
+        tokenContract: result.address,
+      });
       if (
         !err &&
         nftContract &&
-        result.topics[0] === config.EVENT_TOPIC_SIGNATURES.ERC1155_TRANSFER_SINGLE
+        result.topics[0] ===
+          config.EVENT_TOPIC_SIGNATURES.ERC1155_TRANSFER_SINGLE
       ) {
         const seenTx = await seenTransactionModel.findOne({
           transactionHash: result.transactionHash,
         });
         if (seenTx) {
           console.log(
-            `transaction already applied with transaction hash ${result.transactionHash}`
+            `transaction already applied with transaction hash ${result.transactionHash}`,
           );
           return;
         }
 
-        console.log(`decoding ${ERC1155_NFT_CONTRACT_ABI[3]['name']} eventLogs`);
+        console.log(
+          `decoding ${ERC1155_NFT_CONTRACT_ABI[4]['name']} eventLogs`,
+        );
         const decodedData = web3.eth.abi.decodeLog(
-          ERC1155_NFT_CONTRACT_ABI[3]['inputs'], 
-          result.data, 
-          result.topics.slice(1)
+          ERC1155_NFT_CONTRACT_ABI[4]['inputs'],
+          result.data,
+          result.topics.slice(1),
         );
 
-        if(decodedData.from === config.ZERO_ADDRESS) {
+        if (decodedData.from === ZERO_ADDRESS) {
           // save in database
           const NFTContractInstance = new web3.eth.Contract(
             JSON.parse(nftContract.abi),
-            nftContract.tokenContract
+            nftContract.tokenContract,
           );
           const dbCollection = await collectionModel.findOne({
-            contractAddress: nftContract.tokenContract
+            contractAddress: nftContract.tokenContract,
           });
           await _createAsset(
-            result, 
+            result,
             decodedData.id,
-            decodedData.value, 
+            decodedData.value,
             decodedData.to,
-            decodedData.operator, 
-            nftContract, 
+            decodedData.operator,
+            nftContract,
             NFTContractInstance,
-            dbCollection
+            dbCollection,
           );
         }
       }
-    }
+    },
   );
 };
 
 async function updateLastSyncedBlock() {
-  await web3.eth.subscribe("newBlockHeaders", async function (err, result) {
+  await web3.eth.subscribe('newBlockHeaders', async function (err, result) {
     if (!err) {
-      console.log("result.number ", result.number);
+      console.log('result.number ', result.number);
       config.LAST_SYNCED_BLOCK = result.number;
     }
   });
@@ -152,55 +163,53 @@ const scrapeNftContractEventLogs = async function () {
       return;
     }
     processing = true;
-    console.log("Scraping NFT contract event logs...");
+    console.log('Scraping NFT contract event logs...');
     let promises = [];
 
     const nftContracts = await NFTContractsModel.find();
     for (let nftContract of nftContracts) {
       const NFTContractInstance = new web3.eth.Contract(
         JSON.parse(nftContract.abi),
-        nftContract.tokenContract
+        nftContract.tokenContract,
       );
 
       const dbCollection = await collectionModel.findOne({
-        contractAddress: nftContract.tokenContract
+        contractAddress: nftContract.tokenContract,
       });
 
       const last_seen_block = nftContract.lastSeenBlock;
-      let from_Block = parseInt(last_seen_block) + 1 + "";
+      let from_Block = parseInt(last_seen_block) + 1 + '';
       let to_Block;
       const latestBlockNumber = await web3.eth.getBlockNumber();
       if (latestBlockNumber > config.CONFIRMATION_COUNT) {
-        to_Block = latestBlockNumber - config.CONFIRMATION_COUNT + "";
+        to_Block = latestBlockNumber - config.CONFIRMATION_COUNT + '';
       } else {
         to_Block = from_Block;
       }
 
       if (from_Block <= to_Block) {
         const allEventLogs = await NFTContractInstance.getPastEvents(
-          "allEvents",
+          'allEvents',
           {
             fromBlock: from_Block,
             toBlock: to_Block,
-          }
+          },
         );
-        console.log("allEventLogs ", allEventLogs);
+        console.log('allEventLogs ', allEventLogs);
         for (let element of allEventLogs) {
           const seenTx = await seenTransactionModel.findOne({
             transactionHash: element.transactionHash,
           });
           if (seenTx) {
             console.log(
-              `transaction already applied with tx hash ${element.transactionHash}`
+              `transaction already applied with tx hash ${element.transactionHash}`,
             );
             continue;
           }
 
           switch (element.event) {
-            case "Transfer":
-              if (
-                element.returnValues.from === config.ZERO_ADDRESS
-              ) {
+            case 'Transfer':
+              if (element.returnValues.from === ZERO_ADDRESS) {
                 promises.push(
                   _createAsset(
                     element,
@@ -210,30 +219,28 @@ const scrapeNftContractEventLogs = async function () {
                     element.returnValues.to,
                     nftContract,
                     NFTContractInstance,
-                    dbCollection
-                  )
+                    dbCollection,
+                  ),
                 );
               }
               break;
 
-              case 'TransferSingle':
-                if (
-                  element.returnValues.from === config.ZERO_ADDRESS
-                ) {
-                  promises.push(
-                    _createAsset(
-                      element, 
-                      element.returnValues.id,
-                      element.returnValues.value, 
-                      element.returnValues.to,
-                      element.returnValues.operator, 
-                      nftContract, 
-                      NFTContractInstance,
-                      dbCollection
-                    )
-                  );
-                }
-                break;
+            case 'TransferSingle':
+              if (element.returnValues.from === ZERO_ADDRESS) {
+                promises.push(
+                  _createAsset(
+                    element,
+                    element.returnValues.id,
+                    element.returnValues.value,
+                    element.returnValues.to,
+                    element.returnValues.operator,
+                    nftContract,
+                    NFTContractInstance,
+                    dbCollection,
+                  ),
+                );
+              }
+              break;
 
             default:
               break;
@@ -244,7 +251,7 @@ const scrapeNftContractEventLogs = async function () {
           {
             lastSeenBlock: to_Block,
           },
-          { new: true }
+          { new: true },
         );
         await resp.save();
       }
@@ -261,50 +268,48 @@ const scrapeNftContractEventLogs = async function () {
 
 const initScrapeNftContractEventLogs = async function (nftContracts) {
   try {
-    console.log("Initializing NFT contract event logs...");
+    console.log('Initializing NFT contract event logs...');
     // Start from block next to the last seen block till the (latestBlock - CONFIRMATION_COUNT)
     for (let nftContract of nftContracts) {
       const NFTContractInstance = new web3.eth.Contract(
         JSON.parse(nftContract.abi),
-        nftContract.tokenContract
+        nftContract.tokenContract,
       );
       const dbCollection = await collectionModel.findOne({
-        contractAddress: nftContract.tokenContract
+        contractAddress: nftContract.tokenContract,
       });
       const last_seen_block = nftContract.lastSeenBlock;
-      let from_Block = parseInt(last_seen_block) + 1 + "";
+      let from_Block = parseInt(last_seen_block) + 1 + '';
       let to_Block;
       const latestBlockNumber = await web3.eth.getBlockNumber();
       if (latestBlockNumber > config.CONFIRMATION_COUNT) {
-        to_Block = latestBlockNumber - config.CONFIRMATION_COUNT + "";
+        to_Block = latestBlockNumber - config.CONFIRMATION_COUNT + '';
       } else {
         to_Block = from_Block;
       }
 
       if (from_Block <= to_Block) {
         const allEventLogs = await NFTContractInstance.getPastEvents(
-          "allEvents",
+          'allEvents',
           {
             fromBlock: from_Block,
             toBlock: to_Block,
-          }
+          },
         );
-        console.log("Init allEventLogs ", allEventLogs);
+        console.log('Init allEventLogs ', allEventLogs);
         for (let element of allEventLogs) {
           const seenTx = await seenTransactionModel.findOne({
             transactionHash: element.transactionHash,
           });
           if (seenTx) {
             console.log(
-              `transaction already applied with tx hash ${element.transactionHash}`
+              `transaction already applied with tx hash ${element.transactionHash}`,
             );
             continue;
           }
           switch (element.event) {
-            case "Transfer":
-              if (
-                element.returnValues.from == config.ZERO_ADDRESS
-              ) {
+            case 'Transfer':
+              if (element.returnValues.from == ZERO_ADDRESS) {
                 await _createAsset(
                   element,
                   element.returnValues.tokenId,
@@ -313,25 +318,23 @@ const initScrapeNftContractEventLogs = async function (nftContracts) {
                   element.returnValues.to,
                   nftContract,
                   NFTContractInstance,
-                  dbCollection
+                  dbCollection,
                 );
               }
               break;
 
             case 'TransferSingle':
-              if (
-                element.returnValues.from === config.ZERO_ADDRESS
-              ) {
+              if (element.returnValues.from === ZERO_ADDRESS) {
                 await _createAsset(
-                  element, 
+                  element,
                   element.returnValues.id,
-                  element.returnValues.value, 
+                  element.returnValues.value,
                   element.returnValues.to,
-                  element.returnValues.operator, 
-                  nftContract, 
+                  element.returnValues.operator,
+                  nftContract,
                   NFTContractInstance,
-                  dbCollection
-                )
+                  dbCollection,
+                );
               }
               break;
 
@@ -344,7 +347,7 @@ const initScrapeNftContractEventLogs = async function (nftContracts) {
           {
             lastSeenBlock: to_Block,
           },
-          { new: true }
+          { new: true },
         );
         await resp.save();
       }
@@ -363,7 +366,7 @@ async function _createAsset(
   assetMintedBy,
   NFTContract,
   NFTContractInstance,
-  dbCollection
+  dbCollection,
 ) {
   const assetId = await createAssetHelper(
     tokenId,
@@ -372,16 +375,16 @@ async function _createAsset(
     assetMintedBy,
     NFTContract,
     NFTContractInstance,
-    dbCollection
+    dbCollection,
   );
-  
+
   await mintAssetHistoryHelper(eventLog, assetId, quantity);
 
   const seentx = new seenTransactionModel({
     transactionHash: eventLog.transactionHash,
     blockNumber: eventLog.blockNumber,
     eventLog: eventLog,
-    state: "APPLIED",
+    state: 'APPLIED',
   });
   await seentx.save();
 }

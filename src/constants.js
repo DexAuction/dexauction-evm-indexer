@@ -11,6 +11,18 @@ const AUCTION = {
    ENGLISH_AUCTION : 'english',
 }
 
+const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
+
+const SUPPORTED_TOKEN_STANDARDS = {
+  ERC721: 'ERC-721',
+  ERC1155: 'ERC-1155',
+}
+
+// To compare with TokenStandard in solidity events
+const SUPPORTED_TOKEN_STANDARDS_ENUM = {
+  ERC721: '1',
+  ERC1155: '2',
+}
 
 module.exports = {
   DEFAULT_ASSET_STATUS,
@@ -19,5 +31,8 @@ module.exports = {
   LIST,
   TRANSFER,
   CANCEL_LIST,
-  AUCTION
+  AUCTION,
+  ZERO_ADDRESS,
+  SUPPORTED_TOKEN_STANDARDS,
+  SUPPORTED_TOKEN_STANDARDS_ENUM
 };
