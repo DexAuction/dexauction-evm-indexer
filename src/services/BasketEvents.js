@@ -4,7 +4,7 @@ const web3 = new Web3(config.NETWORK_CONFIG.WS_NETWORK_URL);
 const seenTransactionModel = require('../models/seenTransaction');
 const lastSeenBlocksModel = require('../models/last_seen_blocks');
 const { createBasketHelper } = require('../helper/utils');
-const { PROXY_AUCTION_ABI} = require('../abi');
+const { PROXY_AUCTION_ABI } = require('../abi');
 
 let ProxyContract = new web3.eth.Contract(
   PROXY_AUCTION_ABI,
@@ -155,14 +155,16 @@ const scrapeCreateBasketEventLogs = async function () {
               }
             });
 
-            _createBasketHelper(
-              element,
-              basketId,
-              NftAddresses,
-              tokenIds,
-              quantities,
-              basketOwner,
-              tokenStandards,
+            promises.push(
+              _createBasketHelper(
+                element,
+                basketId,
+                NftAddresses,
+                tokenIds,
+                quantities,
+                basketOwner,
+                tokenStandards,
+              ),
             );
 
             break;
