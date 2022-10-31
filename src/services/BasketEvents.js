@@ -3,7 +3,12 @@ const config = require('../config');
 const web3 = new Web3(config.NETWORK_CONFIG.WS_NETWORK_URL);
 const seenTransactionModel = require('../models/seenTransaction');
 const lastSeenBlocksModel = require('../models/last_seen_blocks');
-const { createBasketHelper } = require('../helper/utils');
+const {
+  createBasketHelper,
+  destoryBasketHelper,
+  basketCreateAssetHistoryHelper,
+  basketDestroyAssetHistoryHelper,
+} = require('../helper/utils');
 const { PROXY_AUCTION_ABI } = require('../abi');
 
 let ProxyContract = new web3.eth.Contract(
@@ -39,7 +44,7 @@ const BasketCreateEventSubscription = async function () {
           return;
         }
 
-        console.log(`decoding ${PROXY_AUCTION_ABI[4]['name']} eventLogs`);
+        console.log(`decoding ${PROXY_AUCTION_ABI[4]['name']} eventLogs in BasketEvents`);
         const decodedData = web3.eth.abi.decodeLog(
           PROXY_AUCTION_ABI[4]['inputs'],
           result.data,
@@ -72,7 +77,7 @@ const BasketCreateEventSubscription = async function () {
         });
 
         //save in DB
-        _createBasketHelper(
+        await _createBasketHelper(
           result,
           basketId,
           NftAddresses,
@@ -81,6 +86,49 @@ const BasketCreateEventSubscription = async function () {
           basketOwner,
           tokenStandards,
         );
+      }
+    },
+  );
+};
+
+const BasketDestroyEventSubscription = async function () {
+  await updateLastSyncedBlock();
+
+  // Subscribing to BasketDestroy event
+  await web3.eth.subscribe(
+    'logs',
+    {
+      address: [config.NETWORK_CONFIG.PROXY_ADDRESS.toLowerCase()],
+    },
+
+    async function (err, result) {
+      if (
+        !err &&
+        result.address.toLowerCase() ===
+          config.NETWORK_CONFIG.PROXY_ADDRESS.toLowerCase() &&
+        result.topics[0] === config.EVENT_TOPIC_SIGNATURES.BASKET_DESTROY
+      ) {
+        console.log('Result basket', result);
+        const seenTx = await seenTransactionModel.findOne({
+          transactionHash: result.transactionHash,
+        });
+        if (seenTx) {
+          console.log(
+            `transaction already applied with transaction hash ${result.transactionHash}`,
+          );
+          return;
+        }
+
+        console.log(`decoding ${PROXY_AUCTION_ABI[5]['name']} eventLogs in BasketEvents`);
+        const decodedData = web3.eth.abi.decodeLog(
+          PROXY_AUCTION_ABI[5]['inputs'],
+          result.data,
+          result.topics.slice(1),
+        );
+
+        const basketId = decodedData.basketId;
+
+        await _destoryBasketHelper(result, basketId);
       }
     },
   );
@@ -138,10 +186,10 @@ const scrapeCreateBasketEventLogs = async function () {
           continue;
         }
         switch (element.event) {
-          case 'BasketCreate':
+          case 'BasketCreate': {
             const basketId = element.returnValues.basketId;
             const basketOwner = element.returnValues.basketOwner;
-            let subBaskets = element.returnValues.subBaskets;
+            const subBaskets = element.returnValues.subBaskets;
             let NftAddresses = [];
             let tokenIds = [];
             let quantities = [];
@@ -168,6 +216,14 @@ const scrapeCreateBasketEventLogs = async function () {
             );
 
             break;
+          }
+
+          case 'BasketDestroy': {
+            const basketId = element.returnValues.basketId;
+
+            promises.push(_destoryBasketHelper(element, basketId));
+            break;
+          }
           default:
             break;
         }
@@ -223,9 +279,9 @@ const initScrapeCreateBasketEventLogs = async function (lastSeenBlockRes) {
           continue;
         }
         switch (element.event) {
-          case 'BasketCreate':
+          case 'BasketCreate': {
             const basketId = element.returnValues.basketId;
-            let subBaskets = element.returnValues.subBaskets;
+            const subBaskets = element.returnValues.subBaskets;
             const basketOwner = element.returnValues.basketOwner;
             let NftAddresses = [];
             let tokenIds = [];
@@ -251,6 +307,14 @@ const initScrapeCreateBasketEventLogs = async function (lastSeenBlockRes) {
             );
 
             break;
+          }
+
+          case 'BasketDestroy': {
+            const basketId = element.returnValues.basketId;
+
+            await _destoryBasketHelper(element, basketId);
+            break;
+          }
           default:
             break;
         }
@@ -286,6 +350,23 @@ async function _createBasketHelper(
     basketOwner,
     tokenStandards,
   );
+
+  await basketCreateAssetHistoryHelper(eventLog, basketId);
+
+  const seentx = new seenTransactionModel({
+    transactionHash: eventLog.transactionHash,
+    blockNumber: eventLog.blockNumber,
+    eventLog: eventLog,
+    state: 'APPLIED',
+  });
+  await seentx.save();
+}
+
+async function _destoryBasketHelper(eventLog, basketId) {
+  await destoryBasketHelper(basketId);
+
+  await basketDestroyAssetHistoryHelper(eventLog, basketId);
+
   const seentx = new seenTransactionModel({
     transactionHash: eventLog.transactionHash,
     blockNumber: eventLog.blockNumber,
@@ -297,6 +378,7 @@ async function _createBasketHelper(
 
 module.exports = {
   BasketCreateEventSubscription,
+  BasketDestroyEventSubscription,
   scrapeCreateBasketEventLogs,
   initScrapeCreateBasketEventLogs,
 };

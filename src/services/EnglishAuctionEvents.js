@@ -45,7 +45,9 @@ const EnglishCreateAuctionEventSubscription = async function () {
         result.topics[0] ===
           config.EVENT_TOPIC_SIGNATURES.ENGLISH_AUCTION_CREATE
       ) {
-        console.log(`decoding ${ENGLISH_AUCTION_ABI[4]['name']} eventLogs`);
+        console.log(
+          `decoding ${ENGLISH_AUCTION_ABI[4]['name']} eventLogs in EnglishAuctionEvents`,
+        );
         const decodedData = web3.eth.abi.decodeLog(
           ENGLISH_AUCTION_ABI[4]['inputs'],
           result.data,
@@ -83,7 +85,9 @@ const EnglishCreateAuctionEventSubscription = async function () {
           return;
         }
 
-        console.log(`decoding ${PROXY_AUCTION_ABI[1]['name']} eventLogs`);
+        console.log(
+          `decoding ${PROXY_AUCTION_ABI[1]['name']} eventLogs in EnglishAuctionEvents`,
+        );
         const decodedData = web3.eth.abi.decodeLog(
           PROXY_AUCTION_ABI[1]['inputs'],
           result.data,
@@ -145,7 +149,9 @@ const EnglishCreateAuctionEventSubscription = async function () {
           return;
         }
 
-        console.log(`decoding ${PROXY_AUCTION_ABI[3]['name']} eventLogs`);
+        console.log(
+          `decoding ${PROXY_AUCTION_ABI[3]['name']} eventLogs in EnglishAuctionEvents`,
+        );
         const decodedData = web3.eth.abi.decodeLog(
           PROXY_AUCTION_ABI[3]['inputs'],
           result.data,
@@ -214,7 +220,9 @@ const EnglishConfigureAuctionEventSubscription = async function () {
           return;
         }
 
-        console.log(`decoding ${ENGLISH_AUCTION_ABI[3]['name']} eventLogs`);
+        console.log(
+          `decoding ${ENGLISH_AUCTION_ABI[3]['name']} eventLogs in EnglishAuctionEvents`,
+        );
         const decodedData = web3.eth.abi.decodeLog(
           ENGLISH_AUCTION_ABI[3]['inputs'],
           result.data,
@@ -272,7 +280,9 @@ const EnglishPlaceBidEventSubscription = async function () {
           return;
         }
 
-        console.log(`decoding ${ENGLISH_AUCTION_ABI[7]['name']} eventLogs`);
+        console.log(
+          `decoding ${ENGLISH_AUCTION_ABI[7]['name']} eventLogs in EnglishAuctionEvents`,
+        );
         const decodedData = web3.eth.abi.decodeLog(
           ENGLISH_AUCTION_ABI[7]['inputs'],
           result.data,
@@ -351,7 +361,9 @@ const EnglishAuctionCancelEventSubscription = async function () {
           return;
         }
 
-        console.log(`decoding ${ENGLISH_AUCTION_ABI[1]['name']} eventLogs`);
+        console.log(
+          `decoding ${ENGLISH_AUCTION_ABI[1]['name']} eventLogs in EnglishAuctionEvents`,
+        );
         const decodedData = web3.eth.abi.decodeLog(
           ENGLISH_AUCTION_ABI[1]['inputs'],
           result.data,
@@ -396,7 +408,9 @@ const EnglishAuctionCompleteEventSubscription = async function () {
           return;
         }
 
-        console.log(`decoding ${ENGLISH_AUCTION_ABI[2]['name']} eventLogs`);
+        console.log(
+          `decoding ${ENGLISH_AUCTION_ABI[2]['name']} eventLogs in EnglishAuctionEvents`,
+        );
         const decodedData = web3.eth.abi.decodeLog(
           ENGLISH_AUCTION_ABI[2]['inputs'],
           result.data,

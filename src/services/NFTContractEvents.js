@@ -46,7 +46,7 @@ const NftTransferEventSubscription = async function () {
         }
 
         console.log(
-          `decoding ${DECENTRALAND_NFT_CONTRACT_ABI[3]['name']} eventLogs`,
+          `decoding ERC721 ${DECENTRALAND_NFT_CONTRACT_ABI[3]['name']} eventLogs in NFTEvents`,
         );
         const decodedData = web3.eth.abi.decodeLog(
           DECENTRALAND_NFT_CONTRACT_ABI[3]['inputs'],
@@ -54,6 +54,7 @@ const NftTransferEventSubscription = async function () {
           result.topics.slice(1),
         );
 
+        console.log('from: ', decodedData.from);
         if (decodedData.from === ZERO_ADDRESS) {
           // save in database
           const NFTContractInstance = new web3.eth.Contract(
@@ -110,7 +111,7 @@ const ERC1155NftTransferEventSubscription = async function () {
         }
 
         console.log(
-          `decoding ${ERC1155_NFT_CONTRACT_ABI[4]['name']} eventLogs`,
+          `decoding ERC1155 ${ERC1155_NFT_CONTRACT_ABI[4]['name']} eventLogs in NFTEvents`,
         );
         const decodedData = web3.eth.abi.decodeLog(
           ERC1155_NFT_CONTRACT_ABI[4]['inputs'],
@@ -118,6 +119,7 @@ const ERC1155NftTransferEventSubscription = async function () {
           result.topics.slice(1),
         );
 
+        console.log('from: ', decodedData.from);
         if (decodedData.from === ZERO_ADDRESS) {
           // save in database
           const NFTContractInstance = new web3.eth.Contract(

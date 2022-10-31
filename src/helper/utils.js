@@ -1,13 +1,10 @@
 const axios = require('axios');
 const {
   DEFAULT_ASSET_STATUS,
-  MINT,
-  LIST,
-  TRANSFER,
-  CANCEL_LIST,
+  ASSET_HISTORY_EVENTS,
   AUCTION,
   SUPPORTED_TOKEN_STANDARDS,
-  SUPPORTED_TOKEN_STANDARDS_ENUM
+  SUPPORTED_TOKEN_STANDARDS_ENUM,
 } = require('../constants');
 const Web3 = require('web3');
 const config = require('../config');
@@ -68,9 +65,14 @@ async function createAssetHelper(
 
         // If same asset already exists for owner just update the quantity
         if (dbAssetExist) {
-          const updatedQuantity = parseInt(dbAssetExist.assetQuantity) + parseInt(assetQuantity);
+          const updatedQuantity =
+            parseInt(dbAssetExist.assetQuantity) + parseInt(assetQuantity);
           await dbAssetExist.update({ assetQuantity: updatedQuantity });
 
+          console.log(
+            `Updated Asset(assetId: ${dbAssetExist.assetId})`,
+            `with updatedQuantity: ${updatedQuantity}`,
+          );
           return dbAssetExist.assetId;
         }
 
@@ -102,6 +104,8 @@ async function createAssetHelper(
     const dbAsset = new assetModel(assetEntry);
     await dbAsset.save();
 
+    console.log(`Created new Asset(assetId: ${dbAsset.assetId})`);
+
     // Make empty entry in asset history table
     await emptyAssetHistoryHelper(dbAsset.assetId);
 
@@ -117,14 +121,14 @@ async function createBasketHelper(
   tokenIds,
   quantities,
   basketOwner,
-  tokenStandards
+  tokenStandards,
 ) {
   try {
     const getBasket = await basketModel.findOne({
       basketId: basketId,
     });
 
-    if (getBasket) {
+    if (getBasket && getBasket.isExists) {
       console.log('Basket Id already exists');
       return;
     }
@@ -142,10 +146,10 @@ async function createBasketHelper(
 
       let dbAssetQuery = {
         assetContractAddress: nftContracts[i],
-        assetTokenId: tokenIds[i]
-      }
-      // (contract,tokenId,Owner) identify unique ERC1155 asset 
-      if(tokenStandards[i]===SUPPORTED_TOKEN_STANDARDS_ENUM.ERC1155) {  
+        assetTokenId: tokenIds[i],
+      };
+      // To indentify unique ERC1155 asset we need (contract,tokenId,Owner)
+      if (tokenStandards[i] === SUPPORTED_TOKEN_STANDARDS_ENUM.ERC1155) {
         dbAssetQuery['owner'] = basketOwner;
       }
       const dbAsset = await assetModel.findOne(dbAssetQuery);
@@ -153,9 +157,10 @@ async function createBasketHelper(
       fk_assetsIds.push(dbAsset._id);
     }
 
-    const dbBasket = {
+    const basketEntry = {
       basketId: basketId,
       basketOwner: basketOwner,
+      isExists: true,
       contractAddresses: nftContracts,
       assetTokenIds: tokenIds,
       quantities: quantities,
@@ -164,21 +169,27 @@ async function createBasketHelper(
       assetIds: assetIds,
       fk_assetIds: fk_assetsIds,
     };
-    const basketCreate = new basketModel(dbBasket);
-    await basketCreate.save();
+    const dbBasket = new basketModel(basketEntry);
+    await dbBasket.save();
+    console.log(`Created new Basket(basketId: ${dbBasket.basketId})`);
   } catch (err) {
     console.error(err);
   }
 }
 
+async function destoryBasketHelper(basketId) {
+  console.log(`## Destory Basket(basketId: ${basketId}) ##`);
+  await basketModel.updateOne({ basketId: basketId }, { isExists: false });
+}
+
 async function emptyAssetHistoryHelper(assetId) {
-  const dbAsset = await assetModel.findOne({assetId: assetId});
+  const dbAsset = await assetModel.findOne({ assetId: assetId });
 
   const history = {
     assetId: dbAsset.assetId,
     history: [],
   };
-  console.log('### Empty history in asset history table ###');
+  console.log(`Empty asset history initialized for Asset(assetId: ${assetId})`);
   const dbAssetHistory = new assetHistoryModel(history);
   await dbAssetHistory.save();
 }
@@ -196,7 +207,37 @@ async function mintAssetHistoryHelper(eventLog, assetId, mintQuantity) {
     assetQuantity: mintQuantity,
     actions: config.POLYGON_EXPLORER + '/' + eventLog.transactionHash,
   };
-  await assetHistoryDbHelper(assetId, MINT, assetHistoryParams);
+  await assetHistoryDbHelper(
+    assetId,
+    ASSET_HISTORY_EVENTS.MINT,
+    assetHistoryParams,
+  );
+}
+
+async function basketCreateAssetHistoryHelper(eventLog, basketId) {
+  const dbBasket = await basketModel.findOne({ basketId: basketId });
+
+  for (let i = 0; i < dbBasket.assetIds.length; i++) {
+    await basketCreateAssetHistoryDbHelper(
+      eventLog,
+      dbBasket,
+      dbBasket.assetIds[i],
+      dbBasket.quantities[i],
+    );
+  }
+}
+
+async function basketDestroyAssetHistoryHelper(eventLog, basketId) {
+  const dbBasket = await basketModel.findOne({ basketId: basketId });
+
+  for (let i = 0; i < dbBasket.assetIds.length; i++) {
+    await basketDestroyAssetHistoryDbHelper(
+      eventLog,
+      dbBasket,
+      dbBasket.assetIds[i],
+      dbBasket.quantities[i],
+    );
+  }
 }
 
 async function listAssetHistoryHelper(eventLog, auctionId, auctionType) {
@@ -208,6 +249,7 @@ async function listAssetHistoryHelper(eventLog, auctionId, auctionType) {
     priceVal = dbAuction.englishAuctionAttribute.opening_price;
   }
 
+  // NFT Auction
   if (dbAuction.assetId) {
     const dbAsset = await assetModel.findById(dbAuction.fk_assetId);
     await listAssetHistoryDbHelper(
@@ -217,6 +259,8 @@ async function listAssetHistoryHelper(eventLog, auctionId, auctionType) {
       dbAuction.assetQuantity,
       priceVal,
     );
+
+    // Basket Auction
   } else if (dbAuction.basketId) {
     const dbBasket = await basketModel.findById(dbAuction.fk_basketId);
 
@@ -240,6 +284,7 @@ async function transferAssetHistoryHelper(
 ) {
   const dbAuction = await auctionModel.findOne({ auctionId: auctionId });
 
+  // NFT Auction
   if (dbAuction.assetId) {
     const dbAsset = await assetModel.findById(dbAuction.fk_assetId);
     const dbCollection = await collectionModel.findById(
@@ -255,6 +300,8 @@ async function transferAssetHistoryHelper(
       winningBid,
       winner,
     );
+
+    // Basket Auction
   } else if (dbAuction.basketId) {
     const dbBasket = await basketModel.findById(dbAuction.fk_basketId);
 
@@ -285,6 +332,8 @@ async function cancelListAssetHistoryHelper(eventLog, auctionId, auctionType) {
   } else if (auctionType === AUCTION.ENGLISH_AUCTION) {
     priceVal = dbAuction.englishAuctionAttribute.opening_price;
   }
+
+  // NFT Auction
   if (dbAuction.assetId) {
     const dbAsset = await assetModel.findById(dbAuction.fk_assetId);
 
@@ -295,6 +344,8 @@ async function cancelListAssetHistoryHelper(eventLog, auctionId, auctionType) {
       dbAuction.assetQuantity,
       priceVal,
     );
+
+    // Basket Auction
   } else if (dbAuction.basketId) {
     const dbBasket = await basketModel.findById(dbAuction.fk_basketId);
     for (let i = 0; i < dbBasket.assetIds.length; i++) {
@@ -312,6 +363,8 @@ async function cancelListAssetHistoryHelper(eventLog, auctionId, auctionType) {
 async function changeOwnership(auctionId, newOwner) {
   console.log('##### Change Asset Ownership #######');
   const dbAuction = await auctionModel.findOne({ auctionId: auctionId });
+
+  // NFT Auction
   if (dbAuction.assetId) {
     const dbAssetOldOwner = await assetModel.findById(dbAuction.fk_assetId);
     if (dbAssetOldOwner) {
@@ -319,15 +372,22 @@ async function changeOwnership(auctionId, newOwner) {
         dbAssetOldOwner.fk_collectionId,
       );
 
-      _changeOwnership(
+      await _changeOwnership(
         dbAssetOldOwner,
         dbCollection,
         newOwner,
         dbAuction.assetQuantity,
       );
     }
+
+    // Basket Auction
   } else if (dbAuction.basketId) {
     const dbBasket = await basketModel.findById(dbAuction.fk_basketId);
+    await dbBasket.update({ basketOwner: newOwner });
+    console.log(
+      `changed basket ownership of Basket(basketId: ${dbBasket.basketId})`,
+      `to newOwner: ${newOwner}`,
+    );
 
     for (let i = 0; i < dbBasket.assetIds.length; i++) {
       const dbAssetOldOwner = await assetModel.findById(
@@ -338,7 +398,7 @@ async function changeOwnership(auctionId, newOwner) {
       );
       const auctionAssetQuantity = dbBasket.quantities[i];
 
-      _changeOwnership(
+      await _changeOwnership(
         dbAssetOldOwner,
         dbCollection,
         newOwner,
@@ -360,6 +420,12 @@ async function _changeOwnership(
       await assetModel.updateOne(
         { assetId: dbAssetOldOwner.assetId },
         { owner: newOwner },
+      );
+
+      console.log(
+        `changed ERC721 ownership`,
+        `of Asset(assetId: ${dbAssetOldOwner.assetId})`,
+        `to newOwner: ${newOwner}`,
       );
       break;
     }
@@ -386,11 +452,17 @@ async function _changeOwnership(
 
       // Decrease assetQuantity in oldOwner
       const updatedAssetQuantityOldOwner =
-        parseInt(dbAssetOldOwner.assetQuantity) - parseInt(auctionAssetQuantity);
+        parseInt(dbAssetOldOwner.assetQuantity) -
+        parseInt(auctionAssetQuantity);
 
       await assetModel.updateOne(
         { assetId: dbAssetOldOwner.assetId },
         { assetQuantity: updatedAssetQuantityOldOwner },
+      );
+
+      console.log(
+        `Updated Old Owner Asset(assetId: ${dbAssetOldOwner.assetId})`,
+        `with updatedQuantity: ${updatedAssetQuantityOldOwner}`,
       );
       break;
     }
@@ -456,6 +528,56 @@ async function _transferAssetHistoryHelper(
   }
 }
 
+async function basketCreateAssetHistoryDbHelper(
+  eventLog,
+  dbBasket,
+  assetId,
+  assetQuantity,
+) {
+  const assetHistoryParams = {
+    event_date: dbBasket.updatedAt.toLocaleDateString(),
+    event_time: dbBasket.updatedAt.toLocaleTimeString([], {
+      hour: '2-digit',
+      minute: '2-digit',
+    }),
+    to: dbBasket.basketOwner,
+    assetQuantity: assetQuantity,
+    basketId: dbBasket.basketId,
+    actions: config.POLYGON_EXPLORER + '/' + eventLog.transactionHash,
+  };
+
+  await assetHistoryDbHelper(
+    assetId,
+    ASSET_HISTORY_EVENTS.BASKET_CREATE,
+    assetHistoryParams,
+  );
+}
+
+async function basketDestroyAssetHistoryDbHelper(
+  eventLog,
+  dbBasket,
+  assetId,
+  assetQuantity,
+) {
+  const assetHistoryParams = {
+    event_date: dbBasket.updatedAt.toLocaleDateString(),
+    event_time: dbBasket.updatedAt.toLocaleTimeString([], {
+      hour: '2-digit',
+      minute: '2-digit',
+    }),
+    to: dbBasket.basketOwner,
+    assetQuantity: assetQuantity,
+    basketId: dbBasket.basketId,
+    actions: config.POLYGON_EXPLORER + '/' + eventLog.transactionHash,
+  };
+
+  await assetHistoryDbHelper(
+    assetId,
+    ASSET_HISTORY_EVENTS.BASKET_DESTROY,
+    assetHistoryParams,
+  );
+}
+
 async function transferAssetHistoryDbHelper(
   eventLog,
   dbAuction,
@@ -476,7 +598,12 @@ async function transferAssetHistoryDbHelper(
     assetQuantity: assetQuantity,
     actions: config.POLYGON_EXPLORER + '/' + eventLog.transactionHash,
   };
-  await assetHistoryDbHelper(assetId, TRANSFER, assetHistoryParams);
+
+  await assetHistoryDbHelper(
+    assetId,
+    ASSET_HISTORY_EVENTS.TRANSFER,
+    assetHistoryParams,
+  );
 }
 
 async function listAssetHistoryDbHelper(
@@ -497,7 +624,12 @@ async function listAssetHistoryDbHelper(
     assetQuantity: assetQuantity,
     actions: config.POLYGON_EXPLORER + '/' + eventLog.transactionHash,
   };
-  await assetHistoryDbHelper(assetId, LIST, assetHistoryParams);
+
+  await assetHistoryDbHelper(
+    assetId,
+    ASSET_HISTORY_EVENTS.LIST,
+    assetHistoryParams,
+  );
 }
 
 async function cancelListAssetHistoryDbHelper(
@@ -518,7 +650,12 @@ async function cancelListAssetHistoryDbHelper(
     assetQuantity: assetQuantity,
     actions: config.POLYGON_EXPLORER + '/' + eventLog.transactionHash,
   };
-  await assetHistoryDbHelper(assetId, CANCEL_LIST, assetHistoryParams);
+
+  await assetHistoryDbHelper(
+    assetId,
+    ASSET_HISTORY_EVENTS.CANCEL_LIST,
+    assetHistoryParams,
+  );
 }
 
 async function assetHistoryDbHelper(
@@ -529,6 +666,7 @@ async function assetHistoryDbHelper(
   const dbAssetHistory = await assetHistoryModel.findOne({
     assetId: assetId,
   });
+
   if (dbAssetHistory) {
     await dbAssetHistory.update({
       $push: {
@@ -553,9 +691,12 @@ async function assetHistoryDbHelper(
 module.exports = {
   createAssetHelper,
   createBasketHelper,
+  destoryBasketHelper,
   mintAssetHistoryHelper,
   listAssetHistoryHelper,
   transferAssetHistoryHelper,
   cancelListAssetHistoryHelper,
+  basketCreateAssetHistoryHelper,
+  basketDestroyAssetHistoryHelper,
   changeOwnership,
 };

@@ -43,6 +43,7 @@ const {
 
 const {
   BasketCreateEventSubscription,
+  BasketDestroyEventSubscription,
   initScrapeCreateBasketEventLogs
 } = require("./services/BasketEvents")
 // initialize function to initialize the block indexer
@@ -53,9 +54,9 @@ async function initialize() {
   const lastSeenBlockInstance = await last_seen_blocks.findOne();
 
   await initScrapeNftContractEventLogs(NFTcontracts);
+  await initScrapeCreateBasketEventLogs(lastSeenBlockInstance);
   await initScrapeEnglishAuctionEventLogs(lastSeenBlockInstance);
   await initScrapeDutchAuctionEventLogs(lastSeenBlockInstance);
-  await initScrapeCreateBasketEventLogs(lastSeenBlockInstance);
 }
 
 async function eventSubscriptions() {
@@ -72,6 +73,7 @@ async function eventSubscriptions() {
   await NftTransferEventSubscription();
   await ERC1155NftTransferEventSubscription();
   await BasketCreateEventSubscription();
+  await BasketDestroyEventSubscription();
 }
 
 app.listen(PORT, async () => {

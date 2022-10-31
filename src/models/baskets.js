@@ -9,6 +9,10 @@ const basket = new mongoose.Schema({
     type: String,
   },
 
+  isExists: {
+    type: Boolean,
+  },
+
   contractAddresses: {
     type: [String],
   },

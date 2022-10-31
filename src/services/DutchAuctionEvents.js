@@ -43,7 +43,9 @@ const DutchCreateAuctionEventSubscription = async function () {
         result.topics[0] === config.EVENT_TOPIC_SIGNATURES.DUTCH_AUCTION_CREATE
       ) {
         console.log('result 1', result);
-        console.log(`decoding ${DUTCH_CONTRACT_ABI[3]['name']} eventLogs`);
+        console.log(
+          `decoding ${DUTCH_CONTRACT_ABI[3]['name']} eventLogs in DutchAuctionEvents`,
+        );
         const decodedData = web3.eth.abi.decodeLog(
           DUTCH_CONTRACT_ABI[3]['inputs'],
           result.data,
@@ -79,7 +81,9 @@ const DutchCreateAuctionEventSubscription = async function () {
           return;
         }
 
-        console.log(`decoding ${PROXY_AUCTION_ABI[1]['name']} eventLogs`);
+        console.log(
+          `decoding ${PROXY_AUCTION_ABI[1]['name']} eventLogs in DutchAuctionEvents`,
+        );
         const decodedData = web3.eth.abi.decodeLog(
           PROXY_AUCTION_ABI[1]['inputs'],
           result.data,
@@ -139,7 +143,7 @@ const DutchCreateAuctionEventSubscription = async function () {
           return;
         }
 
-        console.log(`decoding ${PROXY_AUCTION_ABI[3]['name']} eventLogs`);
+        console.log(`decoding ${PROXY_AUCTION_ABI[3]['name']} eventLogs DutchAuctionEvents`);
         const decodedData = web3.eth.abi.decodeLog(
           PROXY_AUCTION_ABI[3]['inputs'],
           result.data,
@@ -152,7 +156,7 @@ const DutchCreateAuctionEventSubscription = async function () {
         const basketId = decodedData.basketId;
         //save in DB
 
-        if (auctionTypeDecode == 'dutch') {
+        if (auctionType == 'dutch') {
           _createBasketAuction(
             result,
             auctionId,
@@ -204,7 +208,7 @@ const DutchConfigureAuctionEventSubscription = async function () {
           );
           return;
         }
-        console.log(`decoding ${DUTCH_CONTRACT_ABI[2]['name']} eventLogs`);
+        console.log(`decoding ${DUTCH_CONTRACT_ABI[2]['name']} eventLogs in DutchAuctionEvents`);
         const decodedData = web3.eth.abi.decodeLog(
           DUTCH_CONTRACT_ABI[2]['inputs'],
           result.data,
@@ -260,7 +264,7 @@ const DutchAcceptPriceEventSubscription = async function () {
           return;
         }
 
-        console.log(`decoding ${DUTCH_CONTRACT_ABI[5]['name']} eventLogs`);
+        console.log(`decoding ${DUTCH_CONTRACT_ABI[5]['name']} eventLogs in DutchAuctionEvents`);
         const decodedData = web3.eth.abi.decodeLog(
           DUTCH_CONTRACT_ABI[5]['inputs'],
           result.data,
@@ -304,7 +308,7 @@ const DutchAuctionCancelEventSubscription = async function () {
           return;
         }
 
-        console.log(`decoding ${DUTCH_CONTRACT_ABI[1]['name']} eventLogs`);
+        console.log(`decoding ${DUTCH_CONTRACT_ABI[1]['name']} eventLogs in DutchAuctionEvents`);
         const decodedData = web3.eth.abi.decodeLog(
           DUTCH_CONTRACT_ABI[1]['inputs'],
           result.data,
