@@ -383,7 +383,10 @@ async function changeOwnership(auctionId, newOwner) {
     // Basket Auction
   } else if (dbAuction.basketId) {
     const dbBasket = await basketModel.findById(dbAuction.fk_basketId);
-    await dbBasket.update({ basketOwner: newOwner });
+    await dbBasket.update({
+      basketOwner: newOwner,
+      isExists: false,
+    });
     console.log(
       `changed basket ownership of Basket(basketId: ${dbBasket.basketId})`,
       `to newOwner: ${newOwner}`,
