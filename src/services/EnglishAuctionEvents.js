@@ -7,7 +7,7 @@ const seenTransactionModel = require('../models/seenTransaction');
 const assetsModel = require('../models/assets');
 const basketModel = require('../models/baskets');
 const { ENGLISH_AUCTION_ABI, PROXY_AUCTION_ABI } = require('../abi');
-const { AUCTION } = require('../constants');
+const { AUCTION, BASKET_STATES } = require('../constants');
 const {
   listAssetHistoryHelper,
   changeOwnership,
@@ -850,6 +850,7 @@ async function _createBasketAuction(
       },
     });
     await dbAuction.save();
+    await getBasket.update({ basketState: BASKET_STATES.LISTED });
   }
 
   const seentx = new seenTransactionModel({

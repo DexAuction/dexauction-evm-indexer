@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { BASKET_STATES } = require('../constants');
 
 const basket = new mongoose.Schema({
   basketId: {
@@ -9,8 +10,13 @@ const basket = new mongoose.Schema({
     type: String,
   },
 
-  isExists: {
-    type: Boolean,
+  basketState: {
+    type: String,
+    enum: [
+      BASKET_STATES.CREATED,
+      BASKET_STATES.LISTED,
+      BASKET_STATES.DESTROYED,
+    ],
   },
 
   contractAddresses: {

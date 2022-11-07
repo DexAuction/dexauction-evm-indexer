@@ -7,7 +7,7 @@ const lastSeenBlocksModel = require('../models/last_seen_blocks');
 const basketModel = require('../models/baskets');
 const seenTransactionModel = require('../models/seenTransaction');
 const { DUTCH_CONTRACT_ABI, PROXY_AUCTION_ABI } = require('../abi');
-const { AUCTION } = require('../constants');
+const { AUCTION, BASKET_STATES } = require('../constants');
 const {
   listAssetHistoryHelper,
   transferAssetHistoryHelper,
@@ -734,6 +734,7 @@ async function _createBasketAuction(
       },
     });
     await dbAuction.save();
+    await getBasket.update({ basketState: BASKET_STATES.LISTED });
   }
   const seentx = new seenTransactionModel({
     transactionHash: eventLog.transactionHash,

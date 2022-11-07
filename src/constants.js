@@ -10,6 +10,12 @@ const ASSET_HISTORY_EVENTS = {
   BASKET_DESTROY: 'basket-destroy',
 };
 
+const BASKET_STATES = {
+  CREATED: 'created',
+  LISTED: 'listed',
+  DESTROYED: 'destroyed',
+};
+
 const AUCTION = {
   DUTCH_AUCTION: 'dutch',
   ENGLISH_AUCTION: 'english',
@@ -32,6 +38,7 @@ module.exports = {
   DEFAULT_ASSET_STATUS,
   ON_SALE_ASSET_STATUS,
   ASSET_HISTORY_EVENTS,
+  BASKET_STATES,
   AUCTION,
   ZERO_ADDRESS,
   SUPPORTED_TOKEN_STANDARDS,

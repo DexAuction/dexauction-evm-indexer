@@ -5,6 +5,7 @@ const {
   AUCTION,
   SUPPORTED_TOKEN_STANDARDS,
   SUPPORTED_TOKEN_STANDARDS_ENUM,
+  BASKET_STATES,
 } = require('../constants');
 const Web3 = require('web3');
 const config = require('../config');
@@ -128,7 +129,7 @@ async function createBasketHelper(
       basketId: basketId,
     });
 
-    if (getBasket && getBasket.isExists) {
+    if (getBasket) {
       console.log('Basket Id already exists');
       return;
     }
@@ -160,7 +161,7 @@ async function createBasketHelper(
     const basketEntry = {
       basketId: basketId,
       basketOwner: basketOwner,
-      isExists: true,
+      basketState: BASKET_STATES.CREATED,
       contractAddresses: nftContracts,
       assetTokenIds: tokenIds,
       quantities: quantities,
@@ -179,7 +180,7 @@ async function createBasketHelper(
 
 async function destoryBasketHelper(basketId) {
   console.log(`## Destory Basket(basketId: ${basketId}) ##`);
-  await basketModel.updateOne({ basketId: basketId }, { isExists: false });
+  await basketModel.updateOne({ basketId: basketId }, { basketState: BASKET_STATES.DESTROYED });
 }
 
 async function emptyAssetHistoryHelper(assetId) {
@@ -385,7 +386,7 @@ async function changeOwnership(auctionId, newOwner) {
     const dbBasket = await basketModel.findById(dbAuction.fk_basketId);
     await dbBasket.update({
       basketOwner: newOwner,
-      isExists: false,
+      basketState: BASKET_STATES.DESTROYED
     });
     console.log(
       `changed basket ownership of Basket(basketId: ${dbBasket.basketId})`,
