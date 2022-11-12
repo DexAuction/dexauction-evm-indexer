@@ -180,7 +180,10 @@ async function createBasketHelper(
 
 async function destoryBasketHelper(basketId) {
   console.log(`## Destory Basket(basketId: ${basketId}) ##`);
-  await basketModel.updateOne({ basketId: basketId }, { basketState: BASKET_STATES.DESTROYED });
+  await basketModel.updateOne(
+    { basketId: basketId },
+    { basketState: BASKET_STATES.DESTROYED },
+  );
 }
 
 async function emptyAssetHistoryHelper(assetId) {
@@ -199,11 +202,7 @@ async function mintAssetHistoryHelper(eventLog, assetId, mintQuantity) {
   const dbAsset = await assetModel.findOne({ assetId: assetId });
 
   const assetHistoryParams = {
-    event_date: dbAsset.updatedAt.toLocaleDateString(),
-    event_time: dbAsset.updatedAt.toLocaleTimeString([], {
-      hour: '2-digit',
-      minute: '2-digit',
-    }),
+    eventAt: dbAsset.createdAt,
     to: dbAsset.owner,
     assetQuantity: mintQuantity,
     actions: config.POLYGON_EXPLORER + '/' + eventLog.transactionHash,
@@ -244,9 +243,9 @@ async function basketDestroyAssetHistoryHelper(eventLog, basketId) {
 async function listAssetHistoryHelper(eventLog, auctionId, auctionType) {
   const dbAuction = await auctionModel.findOne({ auctionId: auctionId });
   let priceVal;
-  if (auctionType === AUCTION.DUTCH_AUCTION) {
+  if (auctionType === AUCTION.DUTCH) {
     priceVal = dbAuction.dutchAuctionAttribute.opening_price;
-  } else if (auctionType === AUCTION.ENGLISH_AUCTION) {
+  } else if (auctionType === AUCTION.ENGLISH) {
     priceVal = dbAuction.englishAuctionAttribute.opening_price;
   }
 
@@ -328,9 +327,9 @@ async function transferAssetHistoryHelper(
 async function cancelListAssetHistoryHelper(eventLog, auctionId, auctionType) {
   const dbAuction = await auctionModel.findOne({ auctionId: auctionId });
   let priceVal;
-  if (auctionType === AUCTION.DUTCH_AUCTION) {
+  if (auctionType === AUCTION.DUTCH) {
     priceVal = dbAuction.dutchAuctionAttribute.opening_price;
-  } else if (auctionType === AUCTION.ENGLISH_AUCTION) {
+  } else if (auctionType === AUCTION.ENGLISH) {
     priceVal = dbAuction.englishAuctionAttribute.opening_price;
   }
 
@@ -386,7 +385,7 @@ async function changeOwnership(auctionId, newOwner) {
     const dbBasket = await basketModel.findById(dbAuction.fk_basketId);
     await dbBasket.update({
       basketOwner: newOwner,
-      basketState: BASKET_STATES.DESTROYED
+      basketState: BASKET_STATES.DESTROYED,
     });
     console.log(
       `changed basket ownership of Basket(basketId: ${dbBasket.basketId})`,
@@ -539,11 +538,7 @@ async function basketCreateAssetHistoryDbHelper(
   assetQuantity,
 ) {
   const assetHistoryParams = {
-    event_date: dbBasket.updatedAt.toLocaleDateString(),
-    event_time: dbBasket.updatedAt.toLocaleTimeString([], {
-      hour: '2-digit',
-      minute: '2-digit',
-    }),
+    eventAt: dbBasket.updatedAt,
     to: dbBasket.basketOwner,
     assetQuantity: assetQuantity,
     basketId: dbBasket.basketId,
@@ -564,11 +559,7 @@ async function basketDestroyAssetHistoryDbHelper(
   assetQuantity,
 ) {
   const assetHistoryParams = {
-    event_date: dbBasket.updatedAt.toLocaleDateString(),
-    event_time: dbBasket.updatedAt.toLocaleTimeString([], {
-      hour: '2-digit',
-      minute: '2-digit',
-    }),
+    eventAt: dbBasket.updatedAt,
     to: dbBasket.basketOwner,
     assetQuantity: assetQuantity,
     basketId: dbBasket.basketId,
@@ -591,11 +582,7 @@ async function transferAssetHistoryDbHelper(
   winner,
 ) {
   const assetHistoryParams = {
-    event_date: dbAuction.updatedAt.toLocaleDateString(),
-    event_time: dbAuction.updatedAt.toLocaleTimeString([], {
-      hour: '2-digit',
-      minute: '2-digit',
-    }),
+    eventAt: dbAuction.updatedAt,
     price: winningBid,
     from: dbAuction.seller,
     to: winner,
@@ -618,11 +605,7 @@ async function listAssetHistoryDbHelper(
   price,
 ) {
   const assetHistoryParams = {
-    event_date: dbAuction.updatedAt.toLocaleDateString(),
-    event_time: dbAuction.updatedAt.toLocaleTimeString([], {
-      hour: '2-digit',
-      minute: '2-digit',
-    }),
+    eventAt: dbAuction.updatedAt,
     price: price,
     from: dbAuction.seller,
     assetQuantity: assetQuantity,
@@ -644,11 +627,7 @@ async function cancelListAssetHistoryDbHelper(
   price,
 ) {
   const assetHistoryParams = {
-    event_date: dbAuction.updatedAt.toLocaleDateString(),
-    event_time: dbAuction.updatedAt.toLocaleTimeString([], {
-      hour: '2-digit',
-      minute: '2-digit',
-    }),
+    eventAt: dbAuction.updatedAt,
     price: price,
     from: dbAuction.seller,
     assetQuantity: assetQuantity,

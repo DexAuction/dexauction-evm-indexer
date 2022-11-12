@@ -17,8 +17,8 @@ const BASKET_STATES = {
 };
 
 const AUCTION = {
-  DUTCH_AUCTION: 'dutch',
-  ENGLISH_AUCTION: 'english',
+  DUTCH: 'dutch',
+  ENGLISH: 'english',
 };
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';

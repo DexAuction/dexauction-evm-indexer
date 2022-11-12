@@ -18,11 +18,8 @@ const assetHistory = new mongoose.Schema({
           ASSET_HISTORY_EVENTS.BASKET_DESTROY,
         ],
       },
-      event_date: {
-        type: String,
-      },
-      event_time: {
-        type: String,
+      eventAt: {
+        type: Date,
       },
       price: {
         type: Number,

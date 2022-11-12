@@ -103,7 +103,7 @@ const EnglishCreateAuctionEventSubscription = async function () {
 
         //save in DB
 
-        if (auctionType === AUCTION.ENGLISH_AUCTION) {
+        if (auctionType === AUCTION.ENGLISH) {
           _createAuction(
             result,
             auctionId,
@@ -492,7 +492,7 @@ const scrapeEnglishAuctionEventLogs = async function () {
             for (item of allEventLogsProxy) {
               if (
                 item.event === 'AuctionCreateProxy' &&
-                item.returnValues.auction_type === AUCTION.ENGLISH_AUCTION &&
+                item.returnValues.auction_type === AUCTION.ENGLISH &&
                 item.transactionHash === element.transactionHash
               ) {
                 const auctionId = item.returnValues.auctionId;
@@ -517,7 +517,7 @@ const scrapeEnglishAuctionEventLogs = async function () {
                 );
               } else if (
                 item.event === 'BasketAuctionCreateProxy' &&
-                item.returnValues.auction_type === AUCTION.ENGLISH_AUCTION &&
+                item.returnValues.auction_type === AUCTION.ENGLISH &&
                 item.transactionHash === element.transactionHash
               ) {
                 const auctionId = item.returnValues.auctionId;
@@ -652,7 +652,7 @@ const initScrapeEnglishAuctionEventLogs = async function (lastSeenBlockRes) {
             for (item of allEventLogsProxy) {
               if (
                 item.event === 'AuctionCreateProxy' &&
-                item.returnValues.auction_type === AUCTION.ENGLISH_AUCTION &&
+                item.returnValues.auction_type === AUCTION.ENGLISH &&
                 item.transactionHash === element.transactionHash
               ) {
                 const auctionId = item.returnValues.auctionId;
@@ -675,7 +675,7 @@ const initScrapeEnglishAuctionEventLogs = async function (lastSeenBlockRes) {
                 );
               } else if (
                 item.event === 'BasketAuctionCreateProxy' &&
-                item.returnValues.auction_type === AUCTION.ENGLISH_AUCTION &&
+                item.returnValues.auction_type === AUCTION.ENGLISH &&
                 item.transactionHash === element.transactionHash
               ) {
                 const auctionId = item.returnValues.auctionId;
@@ -889,7 +889,7 @@ async function _configureAuction(
       state: 'ONGOING',
     },
   );
-  await listAssetHistoryHelper(eventLog, auctionId, AUCTION.ENGLISH_AUCTION);
+  await listAssetHistoryHelper(eventLog, auctionId, AUCTION.ENGLISH);
 
   const seentxConfigure = new seenTransactionModel({
     transactionHash: eventLog.transactionHash,
@@ -963,11 +963,7 @@ async function _cancelAuction(eventLog, auctionId) {
   );
 
   //make entry in asset history
-  await cancelListAssetHistoryHelper(
-    eventLog,
-    auctionId,
-    AUCTION.ENGLISH_AUCTION,
-  );
+  await cancelListAssetHistoryHelper(eventLog, auctionId, AUCTION.ENGLISH);
 
   const seentxCancel = new seenTransactionModel({
     transactionHash: eventLog.transactionHash,

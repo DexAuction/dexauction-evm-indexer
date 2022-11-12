@@ -97,7 +97,7 @@ const DutchCreateAuctionEventSubscription = async function () {
         const assetQuantity = decodedData.quantity;
         const tokenContractAddress = decodedData.tokenContractAddress;
 
-        if (auctionType === AUCTION.DUTCH_AUCTION) {
+        if (auctionType === AUCTION.DUTCH) {
           //save in DB
           _createAuction(
             result,
@@ -395,7 +395,7 @@ const scrapeDutchAuctionEventLogs = async function () {
             for (item of allEventLogsProxy) {
               if (
                 item.event == 'AuctionCreateProxy' &&
-                item.returnValues.auction_type === AUCTION.DUTCH_AUCTION &&
+                item.returnValues.auction_type === AUCTION.DUTCH &&
                 item.transactionHash == element.transactionHash
               ) {
                 const auctionId = element.returnValues.auctionId;
@@ -406,7 +406,7 @@ const scrapeDutchAuctionEventLogs = async function () {
                 const assetQuantity = item.returnValues.quantity;
                 const auctionType = item.returnValues.auction_type;
                 const startTime = element.returnValues.startTime;
-                if (auctiontype === AUCTION.DUTCH_AUCTION) {
+                if (auctiontype === AUCTION.DUTCH) {
                   promises.push(
                     _createAuction(
                       element,
@@ -422,7 +422,7 @@ const scrapeDutchAuctionEventLogs = async function () {
                 }
               } else if (
                 item.event == 'BasketAuctionCreateProxy' &&
-                item.returnValues.auction_type === AUCTION.DUTCH_AUCTION &&
+                item.returnValues.auction_type === AUCTION.DUTCH &&
                 item.transactionHash == element.transactionHash
               ) {
                 const auctionId = element.returnValues.auctionId;
@@ -549,7 +549,7 @@ const initScrapeDutchAuctionEventLogs = async function (lastSeenBlockRes) {
             for (item of allEventLogsProxy) {
               if (
                 item.event == 'AuctionCreateProxy' &&
-                item.returnValues.auction_type === AUCTION.DUTCH_AUCTION &&
+                item.returnValues.auction_type === AUCTION.DUTCH &&
                 item.transactionHash == element.transactionHash
               ) {
                 const auctionId = element.returnValues.auctionId;
@@ -560,7 +560,7 @@ const initScrapeDutchAuctionEventLogs = async function (lastSeenBlockRes) {
                 const assetQuantity = item.returnValues.quantity;
                 const auctionType = item.returnValues.auction_type;
                 const startTime = element.returnValues.startTime;
-                if (auctionType === AUCTION.DUTCH_AUCTION) {
+                if (auctionType === AUCTION.DUTCH) {
                   await _createAuction(
                     element,
                     auctionId,
@@ -574,7 +574,7 @@ const initScrapeDutchAuctionEventLogs = async function (lastSeenBlockRes) {
                 }
               } else if (
                 item.event == 'BasketAuctionCreateProxy' &&
-                item.returnValues.auction_type === AUCTION.DUTCH_AUCTION &&
+                item.returnValues.auction_type === AUCTION.DUTCH &&
                 item.transactionHash == element.transactionHash
               ) {
                 const auctionId = element.returnValues.auctionId;
@@ -770,7 +770,7 @@ async function _configureAuction(
     },
   );
 
-  await listAssetHistoryHelper(eventLog, auctionId, AUCTION.DUTCH_AUCTION);
+  await listAssetHistoryHelper(eventLog, auctionId, AUCTION.DUTCH);
 
   const seentxConfigure = new seenTransactionModel({
     transactionHash: eventLog.transactionHash,
@@ -822,11 +822,7 @@ async function _cancelAuction(eventLog, auctionId) {
   );
 
   //make entry in asset history
-  await cancelListAssetHistoryHelper(
-    eventLog,
-    auctionId,
-    AUCTION.DUTCH_AUCTION,
-  );
+  await cancelListAssetHistoryHelper(eventLog, auctionId, AUCTION.DUTCH);
 
   const seentxCancel = new seenTransactionModel({
     transactionHash: eventLog.transactionHash,
