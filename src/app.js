@@ -10,7 +10,9 @@ const {seedDbEntriesNFT,seedDbEntriesLastSeenBlock } = require("./seeder");
 app.use(bodyParser.json());
 // parse requests of content-type - application/x-www-form-urlencoded
 app.use(bodyParser.urlencoded({ extended: true }));
-
+const Web3 = require("web3");
+const config = require("./config");
+const web3 = new Web3(config.NETWORK_CONFIG.WS_NETWORK_URL);
 // set port, listen for requests, start cron
 const PORT = process.env.PORT || 3000;
 const { getHealth } = require("./health");
@@ -38,6 +40,10 @@ const {
   initScrapeNftContractEventLogs,
 } = require("./services/NFTContractEvents");
 
+const {
+  BasketCreateEventSubscription,
+  initScrapeCreateBasketEventLogs
+} = require("./services/BasketEvents")
 // initialize function to initialize the block indexer
 async function initialize() {
   const NFTcontracts = await nftContractModel.find();
@@ -48,6 +54,7 @@ async function initialize() {
   await initScrapeNftContractEventLogs(NFTcontracts);
   await initScrapeEnglishAuctionEventLogs(lastSeenBlockInstance);
   await initScrapeDutchAuctionEventLogs(lastSeenBlockInstance);
+  await initScrapeCreateBasketEventLogs(lastSeenBlockInstance);
 }
 
 async function eventSubscriptions() {
@@ -62,6 +69,7 @@ async function eventSubscriptions() {
   await DutchAcceptPriceEventSubscription();
   await DutchAuctionCancelEventSubscription();
   await NftTransferEventSubscription();
+  await BasketCreateEventSubscription();
 }
 
 app.listen(PORT, async () => {
@@ -78,7 +86,6 @@ app.listen(PORT, async () => {
     );
     const healthData = await getHealth();
     console.log("healthData", healthData);
-
     if (CONFIRMATION_COUNT == 0) {
       await eventSubscriptions();
     }

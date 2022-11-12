@@ -2,18 +2,14 @@ const res = require('express/lib/response');
 const Web3 = require('web3');
 const config = require('../config');
 const web3 = new Web3(config.NETWORK_CONFIG.WS_NETWORK_URL);
-const auctionModel = require('../models/auction');
+const auctionModel = require('../models/auctions');
 const lastSeenBlocksModel = require('../models/last_seen_blocks');
 const seenTransactionModel = require('../models/seenTransaction');
-const assetsModel = require('../models/asset');
+const assetsModel = require('../models/assets');
+const basketModel = require('../models/baskets')
 const { ENGLISH_AUCTION_ABI, PROXY_AUCTION_ABI } = require('../abi');
-const assetHistoryModel = require('../models/history_assets');
-const {
-  LIST,
-  TRANSFER,
-  CANCEL_LIST,
-  ENGLISH_AUCTION,
-} = require('../constants');
+const { AUCTION } = require('../constants');
+const { listAssetHistoryHelper, changeOwnership, transferAssetHistoryHelper, cancelListAssetHistoryHelper } = require('../helper/utils');
 
 const EnglishAuctionContract = new web3.eth.Contract(
   ENGLISH_AUCTION_ABI,
@@ -46,8 +42,7 @@ const EnglishCreateAuctionEventSubscription = async function () {
         !err &&
         result.address.toLowerCase() ===
           config.NETWORK_CONFIG.ENGLISH_AUCTION_ADDRESS.toLowerCase() &&
-        result.topics[0] ===
-          '0x5f6e9130c3f991e5678d5df51f9547926db4b428e3bfdf539f463a0f6416e42c'
+        result.topics[0] === config.EVENT_TOPIC_SIGNATURES.ENGLISH_AUCTION_CREATE
       ) {
         openingPrice = web3.eth.abi.decodeParameter(
           'uint256',
@@ -91,8 +86,7 @@ const EnglishCreateAuctionEventSubscription = async function () {
         !err &&
         result2.address.toLowerCase() ===
           config.NETWORK_CONFIG.PROXY_ADDRESS.toLowerCase() &&
-        result2.topics[0] ===
-          '0xaa53b7d866501db7f1ccfc14acad91862e63106905d565bf9fd2f4800505f6b1'
+        result2.topics[0] === config.EVENT_TOPIC_SIGNATURES.AUCTION_CREATE_PROXY
       ) {
         const auctionTypeHex = '0x' + result2.data.substring(194);
         const auctionTypeDecode = web3.utils.hexToUtf8(auctionTypeHex);
@@ -119,7 +113,7 @@ const EnglishCreateAuctionEventSubscription = async function () {
 
         //save in DB
 
-        if (auctionTypeDecode == ENGLISH_AUCTION) {
+        if (auctionTypeDecode === AUCTION.ENGLISH_AUCTION) {
           _createAuction(
             result2.transactionHash,
             result2,
@@ -135,6 +129,57 @@ const EnglishCreateAuctionEventSubscription = async function () {
         }
       }
     },
+  );
+  const subscribingBasketAuctionCreateProxy = await web3.eth.subscribe(
+    "logs",
+    {
+      address: config.NETWORK_CONFIG.PROXY_ADDRESS.toLowerCase(),
+    },
+
+    async function (err, result3) {
+      if (
+        !err &&
+        result3.address.toLowerCase() ===
+          config.NETWORK_CONFIG.PROXY_ADDRESS.toLowerCase() &&
+          result3.topics[0] === config.EVENT_TOPIC_SIGNATURES.BASKET_AUCTION_CREATE_PROXY
+      ) {
+
+       console.log("Result basket auction ",result3);
+      const auctionID = web3.eth.abi.decodeParameter("uint256", result3.topics[1]);
+      const auctionOwner =  web3.eth.abi.decodeParameter("address", result3.topics[2]);
+      const basketId  = web3.eth.abi.decodeParameter("uint256", result3.topics[3]);
+        const auctionTypeHex = "0x" + result3.data.substring(130,194);
+        const auctionTypeDecode = web3.utils.hexToUtf8(auctionTypeHex);
+
+        //check if transaction hash already exists
+
+        const seenTx = await seenTransactionModel.findOne({
+          transactionHash: result3.transactionHash,
+        });
+        console.log("seenTx", seenTx);
+        if (seenTx) {
+          console.log("transaction already applied ");
+          return;
+        }
+
+        //save in DB
+
+        if (auctionTypeDecode == "english") {
+
+          _createBasketAuction(
+            result3.transactionHash,
+            result3,
+            auctionID,
+            auctionOwner,
+            auctionTypeDecode,
+            basketId,
+            startTimeDecode,
+            endTimeDecode
+          );
+          console.log("syncedblock create", config.LAST_SYNCED_BLOCK);
+        }
+       }
+    }
   );
   // function heartbeat() {
   //   if (!subscribingTransfer || !subscribingTransfer.id) {
@@ -168,8 +213,7 @@ const EnglishConfigureAuctionEventSubscription = async function () {
         !err &&
         result.address.toLowerCase() ===
           config.NETWORK_CONFIG.ENGLISH_AUCTION_ADDRESS.toLowerCase() &&
-        result.topics[0] ===
-          '0x778db73461320c581d7308b972ca3e9c16ffce06149dc94175298d0d03365cf2'
+        result.topics[0] === config.EVENT_TOPIC_SIGNATURES.ENGLISH_CONFIGURE_AUCTION
       ) {
         console.log('result Configure ', result);
         const seenTx = await seenTransactionModel.findOne({
@@ -243,8 +287,7 @@ const EnglishPlaceBidEventSubscription = async function () {
         !err &&
         result.address.toLowerCase() ===
           config.NETWORK_CONFIG.ENGLISH_AUCTION_ADDRESS.toLowerCase() &&
-        result.topics[0] ===
-          '0x5f40cf581002f0c6368477b76b97ed3bab00a2804aee9ec09328cbcbc5304aec'
+        result.topics[0] === config.EVENT_TOPIC_SIGNATURES.ENGLISH_PLACE_BID
       ) {
         console.log('result Bid ', result);
         const seenTx = await seenTransactionModel.findOne({
@@ -287,8 +330,7 @@ const EnglishAuctionEndEventSubscription = async function () {
         !err &&
         result.address.toLowerCase() ===
           config.NETWORK_CONFIG.PROXY_ADDRESS.toLowerCase() &&
-        result.topics[0] ===
-          '0x63205d4b0571673d9c1d2319c4a2ed023943c9757f110eefffb8e2c1decdd160'
+        result.topics[0] === config.EVENT_TOPIC_SIGNATURES.ENGLISH_AUCTION_END
       ) {
         console.log('result end auction ', result);
 
@@ -318,8 +360,7 @@ const EnglishAuctionCancelEventSubscription = async function () {
         !err &&
         result.address.toLowerCase() ===
           config.NETWORK_CONFIG.ENGLISH_AUCTION_ADDRESS.toLowerCase() &&
-        result.topics[0] ===
-          '0x1d30295566a0ab516b4cd02b8875bb7e3c7e83307b7cdeb0966216825ab5e4be'
+        result.topics[0] === config.EVENT_TOPIC_SIGNATURES.ENGLISH_AUCTION_CANCEL
       ) {
         console.log('result cancel auction ', result);
         const seenTx = await seenTransactionModel.findOne({
@@ -358,8 +399,7 @@ const EnglishAuctionCompleteEventSubscription = async function () {
         !err &&
         result.address.toLowerCase() ===
           config.NETWORK_CONFIG.ENGLISH_AUCTION_ADDRESS.toLowerCase() &&
-        result.topics[0] ===
-          '0x76176cce0ff2d1acbd12eeb335774966211b60f9b0e673348f6168a9ae2f66fb'
+        result.topics[0] === config.EVENT_TOPIC_SIGNATURES.ENGLISH_AUCTION_COMPLETE
       ) {
         console.log('result complete Auction ', result);
 
@@ -456,27 +496,46 @@ const scrapeEnglishAuctionEventLogs = async function () {
             for (item of allEventLogsProxy) {
               if (
                 item.event == 'AuctionCreateProxy' &&
-                item.returnValues.auction_type == ENGLISH_AUCTION &&
+                item.returnValues.auction_type === AUCTION.ENGLISH_AUCTION &&
                 item.transactionHash == element.transactionHash
               ) {
                 tokenContractAddress = item.returnValues.tokenContractAddress;
                 tokenID = item.returnValues.tokenId;
                 auctiontype = item.returnValues.auction_type;
+                promises.push(
+                  _createAuction(
+                    element.transactionHash,
+                    element,
+                    element.returnValues.auctionID,
+                    element.returnValues.auctionOwner,
+                    auctiontype,
+                    tokenID,
+                    tokenContractAddress,
+                    element.returnValues.startTime,
+                    element.returnValues.endTime,
+                  ),
+                );
+              }
+              else if(item.event == 'BasketAuctionCreateProxy' &&
+              item.returnValues.auction_type === AUCTION.ENGLISH_AUCTION &&
+              item.transactionHash == element.transactionHash){
+                auctiontype = item.returnValues.auction_type;
+                  console.log("here,",element)
+                promises.push(
+                  _createBasketAuction(
+                    element.transactionHash,
+                    element,
+                    element.returnValues.auctionId,
+                    element.returnValues.auctionOwner,
+                    auctiontype,
+                    item.returnValues.basketId,
+                    element.returnValues.startTime,
+                    element.returnValues.endTime,
+                  ),
+                );
               }
             }
-            promises.push(
-              _createAuction(
-                element.transactionHash,
-                element,
-                element.returnValues.auctionID,
-                element.returnValues.auctionOwner,
-                auctiontype,
-                tokenID,
-                tokenContractAddress,
-                element.returnValues.startTime,
-                element.returnValues.endTime,
-              ),
-            );
+
             break;
           case 'AuctionConfigure':
             let openingPriceDecode = element.returnValues.openingPrice;
@@ -585,30 +644,46 @@ const initScrapeEnglishAuctionEventLogs = async function (lastSeenBlockRes) {
             let tokenContractAddress;
             let tokenID;
             let auctiontype;
-
             for (item of allEventLogsProxy) {
               if (
                 item.event == 'AuctionCreateProxy' &&
-                item.returnValues.auction_type == ENGLISH_AUCTION &&
+                item.returnValues.auction_type === AUCTION.ENGLISH_AUCTION &&
                 item.transactionHash == element.transactionHash
               ) {
                 tokenContractAddress = item.returnValues.tokenContractAddress;
                 tokenID = item.returnValues.tokenId;
                 auctiontype = item.returnValues.auction_type;
+                _createAuction(
+                  element.transactionHash,
+                  element,
+                  element.returnValues.auctionID,
+                  element.returnValues.auctionOwner,
+                  auctiontype,
+                  tokenID,
+                  tokenContractAddress,
+                  element.returnValues.startTime,
+                  element.returnValues.endTime,
+                );
+    
               }
-            }
-            _createAuction(
-              element.transactionHash,
-              element,
-              element.returnValues.auctionID,
-              element.returnValues.auctionOwner,
-              auctiontype,
-              tokenID,
-              tokenContractAddress,
-              element.returnValues.startTime,
-              element.returnValues.endTime,
-            );
+              else if(item.event == 'BasketAuctionCreateProxy' &&
+              item.returnValues.auction_type === AUCTION.ENGLISH_AUCTION &&
+              item.transactionHash == element.transactionHash){
+                auctiontype = item.returnValues.auction_type;
+                  _createBasketAuction(
+                    element.transactionHash,
+                    element,
+                    element.returnValues.auctionID,
+                    element.returnValues.auctionOwner,
+                    auctiontype,
+                    item.returnValues.basketId,
+                    element.returnValues.startTime,
+                    element.returnValues.endTime,
+                  );
+              }
 
+            }
+           
             break;
           case 'AuctionConfigure':
             let openingPriceDecode = element.returnValues.openingPrice;
@@ -678,14 +753,17 @@ async function _createAuction(
     assetContractAddress: tokenContractAddress,
     assetTokenId: tokenID,
   });
-  console.log('### Create English Auction ###');
+
+  console.log("### Create English Auction ###");
   const dbAuction = new auctionModel({
     auctionId: auctionID,
-    seller: auctionOwner,
-    state: 'NOT-STARTED',
-    auctionType: auctiontype,
+    assetId: getAssetId.assetId,
+    fk_assetId: getAssetId._id,
     assetTokenId: tokenID,
     tokenContract: tokenContractAddress,
+    seller: auctionOwner,
+    state: "NOT-STARTED",
+    auctionType: auctiontype,
     englishAuctionAttribute: {
       opening_price: 0,
       min_increment: 0,
@@ -697,11 +775,60 @@ async function _createAuction(
       buyout_price: 0,
       winning_bid: 0,
     },
-    assetId: getAssetId.assetId,
-    fk_assetId: getAssetId._id,
   });
   await dbAuction.save();
 
+  const seentx = new seenTransactionModel({
+    transactionHash: EventLog.transactionHash,
+    blockNumber: EventLog.blockNumber,
+    eventLog: EventLog,
+    state: "APPLIED",
+  });
+  await seentx.save();
+}
+
+async function _createBasketAuction(
+  txHash,
+  EventLog,
+  auctionID,
+  auctionOwner,
+  auctionType,
+  basketId,
+  startTime,
+  endTime
+) {
+  let getBasket = await basketModel.findOne({
+      basketId:basketId
+  });
+    if(getBasket){
+      console.log(" ### Create English Basket Auction ### ");
+      const dbAuction = new auctionModel({
+        auctionId: auctionID,
+        seller: auctionOwner,
+        state: 'NOT-STARTED',
+        auctionType: auctionType,
+        basketId: basketId,
+        fk_basketId: getBasket._id,
+        englishAuctionAttribute: {
+          opening_price: 0,
+          min_increment: 0,
+          start_timestamp: startTime * 1000,
+          end_timestamp: endTime * 1000,
+          start_datetime: new Date(startTime * 1000),
+          end_datetime: new Date(endTime * 1000),
+          soft_close_duration: 0,
+          buyout_price: 0,
+          winning_bid: 0,
+        }
+      });
+      await dbAuction.save();
+    
+      //update basket with auction details
+       getBasket = await basketModel.findOne({
+        basketId:basketId
+    });
+       await getBasket.update({auctionId:auctionID,fk_auctionId:dbAuction._id});
+    }
   const seentx = new seenTransactionModel({
     transactionHash: EventLog.transactionHash,
     blockNumber: EventLog.blockNumber,
@@ -710,6 +837,7 @@ async function _createAuction(
   });
   await seentx.save();
 }
+
 async function _configureAuction(
   element,
   auctionId,
@@ -737,34 +865,8 @@ async function _configureAuction(
       state: 'ONGOING',
     },
   );
-  const dbAuction = await auctionModel.findOne({ auctionId: auctionId });
-  const dbAsset = await assetsModel.findById(dbAuction.fk_assetId);
-  const dbAssetHistory = await assetHistoryModel.findOne({
-    assetId: dbAsset.assetId,
-  });
-  if (dbAssetHistory) {
-    await dbAssetHistory.update({
-      $push: {
-        history: [
-          {
-            event: LIST,
-            event_date: dbAuction.createdAt.toLocaleDateString(),
-            event_time: dbAuction.createdAt.toLocaleTimeString([], {
-              hour: '2-digit',
-              minute: '2-digit',
-            }),
-            price: dbAuction.englishAuctionAttribute.opening_price,
-            from: dbAuction.seller,
-            actions: config.POLYGON_EXPLORER + '/' + element.transactionHash,
-          },
-        ],
-      },
-    });
-    console.log('### List English Asset history in asset history table ###');
-  } else {
-    console.log('asset not minted yet..', dbAsset.assetId);
-  }
-  await dbAssetHistory.save();
+  await listAssetHistoryHelper(auctionId,AUCTION.ENGLISH_AUCTION,element);
+  
   const seentxConfigure = new seenTransactionModel({
     transactionHash: element.transactionHash,
     blockNumber: element.blockNumber,
@@ -813,43 +915,12 @@ async function _auctionComplete(element, auctionID, winningBid, winner) {
   );
 
   //change owner in asset schema
-  const dbAuction = await auctionModel.findOne({ auctionId: auctionID });
-  const dbAsset = await assetsModel.findById(dbAuction.fk_assetId);
-  await assetsModel.updateOne(
-    { assetId: dbAsset.assetId },
-    { owner: winner },
-  );
+  await changeOwnership(auctionID,winner);
 
-  //make entry in asset history
-  const dbAssetHistory = await assetHistoryModel.findOne({
-    assetId: dbAsset.assetId,
-  });
-  if (dbAssetHistory) {
-    await dbAssetHistory.update({
-      $push: {
-        history: [
-          {
-            event: TRANSFER,
-            event_date: dbAuction.createdAt.toLocaleDateString(),
-            event_time: dbAuction.createdAt.toLocaleTimeString([], {
-              hour: '2-digit',
-              minute: '2-digit',
-            }),
-            price: winningBid,
-            from: dbAuction.seller,
-            to: winner,
-            actions: config.POLYGON_EXPLORER + '/' + element.transactionHash,
-          },
-        ],
-      },
-    });
-    console.log(
-      '### Transfer English Asset history in asset history table ###',
-    );
-  } else {
-    console.log('asset not minted yet..', dbAsset.assetId);
-  }
-  await dbAssetHistory.save();
+//make entry in asset history
+await transferAssetHistoryHelper(auctionID,AUCTION.ENGLISH_AUCTION,element,winningBid,winner);
+
+
   const seentxComplete = new seenTransactionModel({
     transactionHash: element.transactionHash,
     blockNumber: element.blockNumber,
@@ -869,37 +940,9 @@ async function _cancelAuction(element, auctionID) {
   );
 
   //make entry in asset history
-  const dbAuction = await auctionModel.findOne({ auctionId: auctionID });
-  const dbAsset = await assetsModel.findById(dbAuction.fk_assetId);
+ 
+ await cancelListAssetHistoryHelper(auctionID,AUCTION.ENGLISH_AUCTION,element);
 
-  const dbAssetHistory = await assetHistoryModel.findOne({
-    assetId: dbAsset.assetId,
-  });
-  if (dbAssetHistory) {
-    await dbAssetHistory.update({
-      $push: {
-        history: [
-          {
-            event: CANCEL_LIST,
-            event_date: dbAuction.createdAt.toLocaleDateString(),
-            event_time: dbAuction.createdAt.toLocaleTimeString([], {
-              hour: '2-digit',
-              minute: '2-digit',
-            }),
-            price: dbAuction.englishAuctionAttribute.opening_price,
-            from: dbAuction.seller,
-            actions: config.POLYGON_EXPLORER + '/' + element.transactionHash,
-          },
-        ],
-      },
-    });
-    console.log(
-      '### cancel List English Asset history in asset history table ###',
-    );
-  } else {
-    console.log('asset not minted yet..', dbAsset.assetId);
-  }
-  await dbAssetHistory.save();
   const seentxCancel = new seenTransactionModel({
     transactionHash: element.transactionHash,
     blockNumber: element.blockNumber,

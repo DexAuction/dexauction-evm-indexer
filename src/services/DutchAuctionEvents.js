@@ -1,14 +1,15 @@
 const Web3 = require('web3');
 const config = require('../config');
 const web3 = new Web3(config.NETWORK_CONFIG.WS_NETWORK_URL);
-const auctionModel = require('../models/auction');
-const assetsModel = require('../models/asset');
+const auctionModel = require('../models/auctions');
+const assetsModel = require('../models/assets');
 const lastSeenBlocksModel = require('../models/last_seen_blocks');
+const basketModel = require('../models/baskets')
 const seenTransactionModel = require('../models/seenTransaction');
 const { DUTCH_CONTRACT_ABI, PROXY_AUCTION_ABI } = require('../abi');
 const res = require('express/lib/response');
-const { LIST, TRANSFER, CANCEL_LIST, DUTCH_AUCTION } = require('../constants');
-const assetHistoryModel = require('../models/history_assets');
+const { AUCTION } = require('../constants');
+const { listAssetHistoryHelper, transferAssetHistoryHelper, cancelListAssetHistoryHelper, changeOwnership } = require('../helper/utils');
 
 const DutchAuctionContract = new web3.eth.Contract(
   DUTCH_CONTRACT_ABI,
@@ -36,8 +37,7 @@ const DutchCreateAuctionEventSubscription = async function () {
         !err &&
         result.address.toLowerCase() ===
           config.NETWORK_CONFIG.DUTCH_CONTRACT_ADDRESS.toLowerCase() &&
-        result.topics[0] ===
-          '0xe793ffbd8d1d9749a0cdd9b308cea8716ce980a0fd4c6d3ff797fee30b6b8d36'
+        result.topics[0] === config.EVENT_TOPIC_SIGNATURES.DUTCH_AUCTION_CREATE
       ) {
         console.log('result 1', result);
         auctionID = web3.eth.abi.decodeParameter('uint256', result.topics[1]);
@@ -63,8 +63,7 @@ const DutchCreateAuctionEventSubscription = async function () {
         !err &&
         result2.address.toLowerCase() ===
           config.NETWORK_CONFIG.PROXY_ADDRESS.toLowerCase() &&
-        result2.topics[0] ===
-          '0xaa53b7d866501db7f1ccfc14acad91862e63106905d565bf9fd2f4800505f6b1'
+        result2.topics[0] === config.EVENT_TOPIC_SIGNATURES.AUCTION_CREATE_PROXY
       ) {
         console.log('result 2', result2);
         const auctionTypeHex = '0x' + result2.data.substring(194);
@@ -79,7 +78,7 @@ const DutchCreateAuctionEventSubscription = async function () {
           'address',
           result2.topics[3],
         );
-        if (auctionTypeDecode == DUTCH_AUCTION) {
+        if (auctionTypeDecode === AUCTION.DUTCH_AUCTION) {
           const seenTx = await seenTransactionModel.findOne({
             transactionHash: result2.transactionHash,
           });
@@ -106,7 +105,58 @@ const DutchCreateAuctionEventSubscription = async function () {
         }
       }
     },
-  );
+    );
+    const subscribingBasketAuctionCreateProxy = await web3.eth.subscribe(
+      "logs",
+      {
+        address: config.NETWORK_CONFIG.PROXY_ADDRESS.toLowerCase(),
+      },
+  
+      async function (err, result3) {
+        if (
+          !err &&
+          result3.address.toLowerCase() ===
+            config.NETWORK_CONFIG.PROXY_ADDRESS.toLowerCase() &&
+            result3.topics[0] === config.EVENT_TOPIC_SIGNATURES.BASKET_AUCTION_CREATE_PROXY
+        ) {
+  
+         console.log("Result basket auction from Dutch ",result3);
+        const auctionID = web3.eth.abi.decodeParameter("uint256", result3.topics[1]);
+        const auctionOwner =  web3.eth.abi.decodeParameter("address", result3.topics[2]);
+        const basketId  = web3.eth.abi.decodeParameter("uint256", result3.topics[3]);
+          const auctionTypeHex = "0x" + result3.data.substring(130,194);
+          const auctionTypeDecode = web3.utils.hexToUtf8(auctionTypeHex);
+  
+          //check if transaction hash already exists
+  
+          const seenTx = await seenTransactionModel.findOne({
+            transactionHash: result3.transactionHash,
+          });
+          console.log("seenTx", seenTx);
+          if (seenTx) {
+            console.log("transaction already applied ");
+            return;
+          }
+  
+          //save in DB
+  
+          if (auctionTypeDecode == "dutch") {
+  
+            _createBasketAuction(
+              result3.transactionHash,
+              result3,
+              auctionID,
+              auctionOwner,
+              auctionTypeDecode,
+              basketId,
+              startTimeDecode,
+            );
+            console.log("syncedblock create", config.LAST_SYNCED_BLOCK);
+          }
+         }
+      }
+
+    );
   // function heartbeat() {
   //   if (!subscribingTransfer || !subscribingTransfer.id) {
   //     return;
@@ -139,8 +189,7 @@ const DutchConfigureAuctionEventSubscription = async function () {
         !err &&
         result.address.toLowerCase() ===
           config.NETWORK_CONFIG.DUTCH_CONTRACT_ADDRESS.toLowerCase() &&
-        result.topics[0] ===
-          '0x255ccde09f1e6a77a079ebaf1a0ccbc1818536941c520900a72cf02320212cad'
+        result.topics[0] === config.EVENT_TOPIC_SIGNATURES.DUTCH_CONFIGURE_AUCTION
       ) {
         console.log('result Configure ', result);
         const seenTx = await seenTransactionModel.findOne({
@@ -212,8 +261,7 @@ const DutchAcceptPriceEventSubscription = async function () {
         !err &&
         result.address.toLowerCase() ===
           config.NETWORK_CONFIG.DUTCH_CONTRACT_ADDRESS.toLowerCase() &&
-        result.topics[0] ===
-          '0x62a3911748f292afd602f561751a05168762f64ee07098921650dba582fca0d6'
+        result.topics[0] === config.EVENT_TOPIC_SIGNATURES.DUTCH_ACCEPT_PRICE
       ) {
         console.log('result Bid ', result);
         const seenTx = await seenTransactionModel.findOne({
@@ -257,8 +305,7 @@ const DutchAuctionCancelEventSubscription = async function () {
         !err &&
         result.address.toLowerCase() ===
           config.NETWORK_CONFIG.DUTCH_CONTRACT_ADDRESS.toLowerCase() &&
-        result.topics[0] ===
-          '0x1d30295566a0ab516b4cd02b8875bb7e3c7e83307b7cdeb0966216825ab5e4be'
+        result.topics[0] === config.EVENT_TOPIC_SIGNATURES.DUTCH_AUCTION_CANCEL
       ) {
         console.log('result cancel auction ', result);
         const seenTx = await seenTransactionModel.findOne({
@@ -348,29 +395,45 @@ const scrapeDutchAuctionEventLogs = async function () {
             for (item of allEventLogsProxy) {
               if (
                 item.event == 'AuctionCreateProxy' &&
-                item.returnValues.auction_type == DUTCH_AUCTION &&
+                item.returnValues.auction_type === AUCTION.DUTCH_AUCTION &&
                 item.transactionHash == element.transactionHash
               ) {
                 tokenContractAddress = item.returnValues.tokenContractAddress;
                 tokenID = item.returnValues.tokenId;
                 auctiontype = item.returnValues.auction_type;
+                if (auctiontype === AUCTION.DUTCH_AUCTION) {
+                  promises.push(
+                    _createAuction(
+                      element.transactionHash,
+                      element,
+                      element.returnValues.auctionId,
+                      element.returnValues.auctionOwner,
+                      auctiontype,
+                      tokenID,
+                      tokenContractAddress,
+                      element.returnValues.startTime,
+                    ),
+                  );
+                }
+              }
+              else if(item.event == 'BasketAuctionCreateProxy' &&
+              item.returnValues.auction_type === AUCTION.DUTCH_AUCTION &&
+              item.transactionHash == element.transactionHash){
+                auctiontype = item.returnValues.auction_type;
+                promises.push(_createBasketAuction(
+                    element.transactionHash,
+                    element,
+                    element.returnValues.auctionId,
+                    element.returnValues.auctionOwner,
+                    auctiontype,
+                    item.returnValues.basketId,
+                    element.returnValues.startTime,
+                  ));
               }
             }
-            if (auctiontype == DUTCH_AUCTION) {
-              promises.push(
-                _createAuction(
-                  element.transactionHash,
-                  element,
-                  element.returnValues.auctionId,
-                  element.returnValues.auctionOwner,
-                  auctiontype,
-                  tokenID,
-                  tokenContractAddress,
-                  element.returnValues.startTime,
-                ),
-              );
-              break;
-            }
+            
+            break;
+
           case 'AuctionConfigure':
             let openingPriceDecode = element.returnValues.openingPrice;
             let reservePriceDecode = element.returnValues.reservePrice;
@@ -472,27 +535,44 @@ const initScrapeDutchAuctionEventLogs = async function (lastSeenBlockRes) {
             for (item of allEventLogsProxy) {
               if (
                 item.event == 'AuctionCreateProxy' &&
-                item.returnValues.auction_type == DUTCH_AUCTION &&
+                item.returnValues.auction_type === AUCTION.DUTCH_AUCTION &&
                 item.transactionHash == element.transactionHash
               ) {
                 tokenContractAddress = item.returnValues.tokenContractAddress;
                 tokenID = item.returnValues.tokenId;
                 auctiontype = item.returnValues.auction_type;
+                if (auctiontype === AUCTION.DUTCH_AUCTION) {
+                  _createAuction(
+                    element.transactionHash,
+                    element,
+                    element.returnValues.auctionId,
+                    element.returnValues.auctionOwner,
+                    auctiontype,
+                    tokenID,
+                    tokenContractAddress,
+                    element.returnValues.startTime,
+                  );
+                }
+              }
+              else if(item.event == 'BasketAuctionCreateProxy' &&
+              item.returnValues.auction_type === AUCTION.DUTCH_AUCTION &&
+              item.transactionHash == element.transactionHash){
+                auctiontype = item.returnValues.auction_type;
+                  _createBasketAuction(
+                    element.transactionHash,
+                    element,
+                    element.returnValues.auctionID,
+                    element.returnValues.auctionOwner,
+                    auctiontype,
+                    item.returnValues.basketId,
+                    element.returnValues.startTime,
+                    element.returnValues.endTime,
+                  );
               }
             }
-            if (auctiontype == DUTCH_AUCTION) {
-              _createAuction(
-                element.transactionHash,
-                element,
-                element.returnValues.auctionId,
-                element.returnValues.auctionOwner,
-                auctiontype,
-                tokenID,
-                tokenContractAddress,
-                element.returnValues.startTime,
-              );
-              break;
-            }
+
+            break;
+
           case 'AuctionConfigure':
             let openingPriceDecode = element.returnValues.openingPrice;
             let reservePriceDecode = element.returnValues.reservePrice;
@@ -551,27 +631,28 @@ async function _createAuction(
     assetContractAddress: tokenContractAddress,
     assetTokenId: tokenID,
   });
-  const dbAuction = new auctionModel({
-    auctionId: auctionID,
-    seller: auctionOwner,
-    state: 'NOT-STARTED',
-    auctionType: auctiontype,
-    assetTokenId: tokenID,
-    tokenContract: tokenContractAddress,
-    dutchAuctionAttribute: {
-      opening_price: 0,
-      round_duration: 0,
-      start_timestamp: startTime * 1000,
-      start_datetime: new Date(startTime * 1000),
-      reserve_price: 0,
-      drop_amount: 0,
-      winning_bid: 0,
-    },
-    assetId: getAssetId.assetId,
-    fk_assetId: getAssetId._id,
-  });
-  await dbAuction.save();
-
+  if(getAssetId){
+    const dbAuction = new auctionModel({
+      auctionId: auctionID,
+      seller: auctionOwner,
+      state: 'NOT-STARTED',
+      auctionType: auctiontype,
+      assetTokenId: tokenID,
+      tokenContract: tokenContractAddress,
+      dutchAuctionAttribute: {
+        opening_price: 0,
+        round_duration: 0,
+        start_timestamp: startTime * 1000,
+        start_datetime: new Date(startTime * 1000),
+        reserve_price: 0,
+        drop_amount: 0,
+        winning_bid: 0,
+      },
+      assetId: getAssetId.assetId,
+      fk_assetId: getAssetId._id,
+    });
+    await dbAuction.save();
+  }
   const seentx = new seenTransactionModel({
     transactionHash: EventLog.transactionHash,
     blockNumber: EventLog.blockNumber,
@@ -580,6 +661,55 @@ async function _createAuction(
   });
   await seentx.save();
 }
+
+async function _createBasketAuction(
+  txHash,
+  EventLog,
+  auctionID,
+  auctionOwner,
+  auctionType,
+  basketId,
+  startTime,
+) {
+  let getBasket = await basketModel.findOne({
+      basketId:basketId
+  });
+    if(getBasket){
+      console.log(" ### Create Dutch Basket Auction ### ");
+      const dbAuction = new auctionModel({
+        auctionId: auctionID,
+        seller: auctionOwner,
+        state: 'NOT-STARTED',
+        auctionType: auctionType,
+        basketId: basketId,
+        fk_basketId: getBasket._id,
+        dutchAuctionAttribute: {
+          opening_price: 0,
+          round_duration: 0,
+          start_timestamp: startTime * 1000,
+          start_datetime: new Date(startTime * 1000),
+          reserve_price: 0,
+          drop_amount: 0,
+          winning_bid: 0,
+        },
+      });
+      await dbAuction.save();
+    
+      //update basket with auction details
+       getBasket = await basketModel.findOne({
+        basketId:basketId
+    });
+       await getBasket.update({auctionId:auctionID,fk_auctionId:dbAuction._id});
+    }
+  const seentx = new seenTransactionModel({
+    transactionHash: EventLog.transactionHash,
+    blockNumber: EventLog.blockNumber,
+    eventLog: EventLog,
+    state: 'APPLIED',
+  });
+  await seentx.save();
+}
+
 
 async function _configureAuction(
   element,
@@ -606,34 +736,7 @@ async function _configureAuction(
     },
   );
 
-  const dbAuction = await auctionModel.findOne({ auctionId: auctionID });
-  const dbAsset = await assetsModel.findById(dbAuction.fk_assetId);
-  const dbAssetHistory = await assetHistoryModel.findOne({
-    assetId: dbAsset.assetId,
-  });
-  if (dbAssetHistory) {
-    await dbAssetHistory.update({
-      $push: {
-        history: [
-          {
-            event: LIST,
-            event_date: dbAuction.createdAt.toLocaleDateString(),
-            event_time: dbAuction.createdAt.toLocaleTimeString([], {
-              hour: '2-digit',
-              minute: '2-digit',
-            }),
-            price: dbAuction.dutchAuctionAttribute.opening_price,
-            from: dbAuction.seller,
-            actions: config.POLYGON_EXPLORER + '/' + element.transactionHash,
-          },
-        ],
-      },
-    });
-    console.log('### List Dutch Asset history in asset history table ###');
-  } else {
-    console.log('asset not minted yet..', dbAsset.assetId);
-  }
-  await dbAssetHistory.save();
+  await listAssetHistoryHelper(auctionID, AUCTION.DUTCH_AUCTION,element);
 
   const seentxConfigure = new seenTransactionModel({
     transactionHash: element.transactionHash,
@@ -643,9 +746,10 @@ async function _configureAuction(
   });
   await seentxConfigure.save();
 }
-async function _acceptPrice(element, AuctionId, winBid, auctionWinner) {
+
+async function _acceptPrice(element, auctionId, winBid, auctionWinner) {
   await auctionModel.updateMany(
-    { auctionId: AuctionId },
+    { auctionId: auctionId },
     {
       $set: { 'dutchAuctionAttribute.winning_bid': winBid },
       buyer: auctionWinner,
@@ -654,41 +758,12 @@ async function _acceptPrice(element, AuctionId, winBid, auctionWinner) {
   );
 
   //change owner in asset schema
-  const dbAuction = await auctionModel.findOne({ auctionId: AuctionId });
-  const dbAsset = await assetsModel.findById(dbAuction.fk_assetId);
-  await assetsModel.updateOne(
-    { assetId: dbAsset.assetId },
-    { owner: auctionWinner },
-  );
 
-  //make entry in asset history
-  const dbAssetHistory = await assetHistoryModel.findOne({
-    assetId: dbAsset.assetId,
-  });
-  if (dbAssetHistory) {
-    await dbAssetHistory.update({
-      $push: {
-        history: [
-          {
-            event: TRANSFER,
-            event_date: dbAuction.createdAt.toLocaleDateString(),
-            event_time: dbAuction.createdAt.toLocaleTimeString([], {
-              hour: '2-digit',
-              minute: '2-digit',
-            }),
-            price: winBid,
-            from: dbAuction.seller,
-            to: auctionWinner,
-            actions: config.POLYGON_EXPLORER + '/' + element.transactionHash,
-          },
-        ],
-      },
-    });
-    console.log('### Transfer Dutch Asset history in asset history table ###');
-  } else {
-    console.log('asset not minted yet..', dbAsset.assetId);
-  }
-  await dbAssetHistory.save();
+await changeOwnership(auctionId,auctionWinner);
+ 
+//make entry in asset history
+ await transferAssetHistoryHelper(auctionId,AUCTION.DUTCH_AUCTION,element,winBid,auctionWinner);
+
 
   const seentxPriceAccept = new seenTransactionModel({
     transactionHash: element.transactionHash,
@@ -707,38 +782,10 @@ async function _cancelAuction(element, auctionId) {
       state: 'CANCELLED',
     },
   );
-  //make entry in asset history
-  const dbAuction = await auctionModel.findOne({ auctionId: auctionId });
-  const dbAsset = await assetsModel.findById(dbAuction.fk_assetId);
 
-  const dbAssetHistory = await assetHistoryModel.findOne({
-    assetId: dbAsset.assetId,
-  });
-  if (dbAssetHistory) {
-    await dbAssetHistory.update({
-      $push: {
-        history: [
-          {
-            event: CANCEL_LIST,
-            event_date: dbAuction.createdAt.toLocaleDateString(),
-            event_time: dbAuction.createdAt.toLocaleTimeString([], {
-              hour: '2-digit',
-              minute: '2-digit',
-            }),
-            price: dbAuction.dutchAuctionAttribute.opening_price,
-            from: dbAuction.seller,
-            actions: config.POLYGON_EXPLORER + '/' + element.transactionHash,
-          },
-        ],
-      },
-    });
-    console.log(
-      '### cancel List Dutch Asset history in asset history table ###',
-    );
-  } else {
-    console.log('asset not minted yet..', dbAsset.assetId);
-  }
-  await dbAssetHistory.save();
+  //make entry in asset history
+  await cancelListAssetHistoryHelper(auctionId,AUCTION.DUTCH_AUCTION,element);
+
   const seentxCancel = new seenTransactionModel({
     transactionHash: element.transactionHash,
     blockNumber: element.blockNumber,

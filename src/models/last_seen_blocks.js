@@ -8,6 +8,10 @@ const last_seen_blocks = new mongoose.Schema({
   blockNumberDutch: {
     type: String,
     required: true,
+  },
+  blockNumberProxy:{
+    type:String,
+    required: true
   }
 });
 last_seen_blocks.set("timestamps", true);

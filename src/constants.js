@@ -6,8 +6,11 @@ const LIST = 'list';
 const TRANSFER = 'transfer';
 const CANCEL_LIST = 'cancel-list';
 
-const DUTCH_AUCTION = 'dutch';
-const ENGLISH_AUCTION = 'english';
+const AUCTION = {
+   DUTCH_AUCTION : 'dutch',
+   ENGLISH_AUCTION : 'english',
+}
+
 
 module.exports = {
   DEFAULT_ASSET_STATUS,
@@ -16,6 +19,5 @@ module.exports = {
   LIST,
   TRANSFER,
   CANCEL_LIST,
-  DUTCH_AUCTION,
-  ENGLISH_AUCTION,
+  AUCTION
 };

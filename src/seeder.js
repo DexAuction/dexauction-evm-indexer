@@ -43,6 +43,7 @@ async function seedDbEntriesLastSeenBlock() {
     const lastSeenBlock = new last_seen_blocks({
       blockNumberEnglish: NETWORK_CONFIG.START_BLOCK_ENGLISH,
       blockNumberDutch: NETWORK_CONFIG.START_BLOCK_DUTCH,
+      blockNumberProxy: NETWORK_CONFIG.START_BLOCK_PROXY
     });
     await lastSeenBlock.save();
   }
