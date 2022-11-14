@@ -2,10 +2,10 @@ const {
   DECENTRALAND_NFT_CONTRACT_ABI,
   ENS_NFT_CONTRACT_ABI,
   ERC1155_NFT_CONTRACT_ABI
-} = require('./abi');
-const { NETWORK_CONFIG } = require('./config');
-const last_seen_blocks = require('./models/last_seen_blocks');
-const nftContractModel = require('./models/NFT_contracts');
+} = require('./src/abi');
+const { NETWORK_CONFIG } = require('./src/config');
+const last_seen_blocks = require('./src/models/last_seen_blocks');
+const nftContractModel = require('./src/models/NFT_contracts');
 
 async function seedDbEntriesNFT() {
   const decentralandContractInstance = await nftContractModel.findOne({

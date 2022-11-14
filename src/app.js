@@ -5,7 +5,7 @@ const app = express();
 const { NETWORK_CONFIG, CONFIRMATION_COUNT } = require("./config");
 const last_seen_blocks = require("./models/last_seen_blocks");
 const nftContractModel = require("./models/NFT_contracts");
-const {seedDbEntriesNFT,seedDbEntriesLastSeenBlock } = require("./seeder");
+const {seedDbEntriesNFT,seedDbEntriesLastSeenBlock } = require("../seeder");
 // parse requests of content-type - application/json
 app.use(bodyParser.json());
 // parse requests of content-type - application/x-www-form-urlencoded
