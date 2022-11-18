@@ -9,9 +9,9 @@ const scrapingJob = new CronJob(
   async () => {
     console.log("\nStarting event scraping ...");
     await scrapeNftContractEventLogs();
+    await scrapeCreateBasketEventLogs();
     await scrapeEnglishAuctionEventLogs();
     await scrapeDutchAuctionEventLogs();
-    await scrapeCreateBasketEventLogs();
   }
 );
 

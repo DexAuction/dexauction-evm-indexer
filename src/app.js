@@ -5,7 +5,7 @@ const app = express();
 const { NETWORK_CONFIG, CONFIRMATION_COUNT } = require("./config");
 const last_seen_blocks = require("./models/last_seen_blocks");
 const nftContractModel = require("./models/NFT_contracts");
-const {seedDbEntriesNFT,seedDbEntriesLastSeenBlock } = require("./seeder");
+const {seedDbEntriesNFT,seedDbEntriesLastSeenBlock } = require("../seeder");
 // parse requests of content-type - application/json
 app.use(bodyParser.json());
 // parse requests of content-type - application/x-www-form-urlencoded
@@ -22,7 +22,7 @@ const {
   EnglishConfigureAuctionEventSubscription,
   EnglishPlaceBidEventSubscription,
   EnglishAuctionCancelEventSubscription,
-  EnglishAuctionEndEventSubscription,
+  // EnglishAuctionEndEventSubscription,
   EnglishAuctionCompleteEventSubscription,
   initScrapeEnglishAuctionEventLogs,
 } = require("./services/EnglishAuctionEvents");
@@ -37,24 +37,26 @@ const {
 
 const {
   NftTransferEventSubscription,
+  ERC1155NftTransferEventSubscription,
   initScrapeNftContractEventLogs,
 } = require("./services/NFTContractEvents");
 
 const {
   BasketCreateEventSubscription,
+  BasketDestroyEventSubscription,
   initScrapeCreateBasketEventLogs
 } = require("./services/BasketEvents")
 // initialize function to initialize the block indexer
 async function initialize() {
-  const NFTcontracts = await nftContractModel.find();
-  const lastSeenBlockInstance = await last_seen_blocks.findOne();
   await seedDbEntriesLastSeenBlock();
   await seedDbEntriesNFT();
+  const NFTcontracts = await nftContractModel.find();
+  const lastSeenBlockInstance = await last_seen_blocks.findOne();
 
   await initScrapeNftContractEventLogs(NFTcontracts);
+  await initScrapeCreateBasketEventLogs(lastSeenBlockInstance);
   await initScrapeEnglishAuctionEventLogs(lastSeenBlockInstance);
   await initScrapeDutchAuctionEventLogs(lastSeenBlockInstance);
-  await initScrapeCreateBasketEventLogs(lastSeenBlockInstance);
 }
 
 async function eventSubscriptions() {
@@ -62,14 +64,16 @@ async function eventSubscriptions() {
   await EnglishConfigureAuctionEventSubscription();
   await EnglishPlaceBidEventSubscription();
   await EnglishAuctionCancelEventSubscription();
-  await EnglishAuctionEndEventSubscription();
+  // await EnglishAuctionEndEventSubscription();
   await EnglishAuctionCompleteEventSubscription();
   await DutchCreateAuctionEventSubscription();
   await DutchConfigureAuctionEventSubscription();
   await DutchAcceptPriceEventSubscription();
   await DutchAuctionCancelEventSubscription();
   await NftTransferEventSubscription();
+  await ERC1155NftTransferEventSubscription();
   await BasketCreateEventSubscription();
+  await BasketDestroyEventSubscription();
 }
 
 app.listen(PORT, async () => {

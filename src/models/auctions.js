@@ -63,6 +63,9 @@ const auction = new mongoose.Schema({
   assetTokenId: {
     type: Number,
   },
+  assetQuantity: {
+    type: Number,
+  },
   assetId: {
     type: Number,
   },

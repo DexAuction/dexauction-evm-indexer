@@ -4,12 +4,16 @@ const web3 = new Web3(config.NETWORK_CONFIG.WS_NETWORK_URL);
 const auctionModel = require('../models/auctions');
 const assetsModel = require('../models/assets');
 const lastSeenBlocksModel = require('../models/last_seen_blocks');
-const basketModel = require('../models/baskets')
+const basketModel = require('../models/baskets');
 const seenTransactionModel = require('../models/seenTransaction');
 const { DUTCH_CONTRACT_ABI, PROXY_AUCTION_ABI } = require('../abi');
-const res = require('express/lib/response');
-const { AUCTION } = require('../constants');
-const { listAssetHistoryHelper, transferAssetHistoryHelper, cancelListAssetHistoryHelper, changeOwnership } = require('../helper/utils');
+const { AUCTION, BASKET_STATES } = require('../constants');
+const {
+  listAssetHistoryHelper,
+  transferAssetHistoryHelper,
+  cancelListAssetHistoryHelper,
+  changeOwnership,
+} = require('../helper/utils');
 
 const DutchAuctionContract = new web3.eth.Contract(
   DUTCH_CONTRACT_ABI,
@@ -23,10 +27,9 @@ const ProxyContract = new web3.eth.Contract(
 const DutchCreateAuctionEventSubscription = async function () {
   await updateLastSyncedBlock();
 
-  let auctionID;
-  let auctionOwner;
-  let startTimeDecode;
-  const subscribingAuctionCreate = await web3.eth.subscribe(
+  let startTime;
+  // Subscribing AuctionCreate event
+  await web3.eth.subscribe(
     'logs',
     {
       address: config.NETWORK_CONFIG.DUTCH_CONTRACT_ADDRESS.toLowerCase(),
@@ -40,123 +43,135 @@ const DutchCreateAuctionEventSubscription = async function () {
         result.topics[0] === config.EVENT_TOPIC_SIGNATURES.DUTCH_AUCTION_CREATE
       ) {
         console.log('result 1', result);
-        auctionID = web3.eth.abi.decodeParameter('uint256', result.topics[1]);
-        auctionOwner = web3.eth.abi.decodeParameter(
-          'address',
-          result.topics[2],
+        console.log(
+          `decoding ${DUTCH_CONTRACT_ABI[3]['name']} eventLogs in DutchAuctionEvents`,
         );
-        startTimeDecode = web3.eth.abi.decodeParameter(
-          'uint256',
-          result.topics[3],
+        const decodedData = web3.eth.abi.decodeLog(
+          DUTCH_CONTRACT_ABI[3]['inputs'],
+          result.data,
+          result.topics.slice(1),
         );
+
+        startTime = decodedData.startTime;
       }
     },
   );
-  const subscribingAuctionCreateProxy = await web3.eth.subscribe(
+
+  // Subscribing AuctionCreateProxy event
+  await web3.eth.subscribe(
     'logs',
     {
       address: config.NETWORK_CONFIG.PROXY_ADDRESS.toLowerCase(),
     },
 
-    async function (err, result2) {
+    async function (err, result) {
       if (
         !err &&
-        result2.address.toLowerCase() ===
+        result.address.toLowerCase() ===
           config.NETWORK_CONFIG.PROXY_ADDRESS.toLowerCase() &&
-        result2.topics[0] === config.EVENT_TOPIC_SIGNATURES.AUCTION_CREATE_PROXY
+        result.topics[0] === config.EVENT_TOPIC_SIGNATURES.AUCTION_CREATE_PROXY
       ) {
-        console.log('result 2', result2);
-        const auctionTypeHex = '0x' + result2.data.substring(194);
-        const auctionTypeDecode = web3.utils.hexToUtf8(auctionTypeHex);
-        const tokenIdHex = '0x' + result2.data.substring(66, 130);
-        const tokenIdDecode = web3.eth.abi.decodeParameter(
-          'uint256',
-          tokenIdHex,
-        );
-
-        const tokenContractAddress = web3.eth.abi.decodeParameter(
-          'address',
-          result2.topics[3],
-        );
-        if (auctionTypeDecode === AUCTION.DUTCH_AUCTION) {
-          const seenTx = await seenTransactionModel.findOne({
-            transactionHash: result2.transactionHash,
-          });
-          if (seenTx) {
-            console.log(
-              `transaction already applied , Transaction hash: ${result2.transactionHash}`,
-            );
-            return;
-          }
-
-          //save in DB
-
-          _createAuction(
-            result2.transactionHash,
-            result2,
-            auctionID,
-            auctionOwner,
-            auctionTypeDecode,
-            tokenIdDecode,
-            tokenContractAddress,
-            startTimeDecode,
+        const seenTx = await seenTransactionModel.findOne({
+          transactionHash: result.transactionHash,
+        });
+        if (seenTx) {
+          console.log(
+            `transaction already applied , Transaction hash: ${result.transactionHash}`,
           );
+          return;
+        }
+
+        console.log(
+          `decoding ${PROXY_AUCTION_ABI[1]['name']} eventLogs in DutchAuctionEvents`,
+        );
+        const decodedData = web3.eth.abi.decodeLog(
+          PROXY_AUCTION_ABI[1]['inputs'],
+          result.data,
+          result.topics.slice(1),
+        );
+
+        const auctionId = decodedData.auctionId;
+        const auctionType = decodedData.auction_type;
+        const auctionOwner = decodedData.auctionOwner;
+        const assetTokenId = decodedData.tokenId;
+        const assetQuantity = decodedData.quantity;
+        const tokenContractAddress = decodedData.tokenContractAddress;
+
+        if (auctionType === AUCTION.DUTCH) {
+          //save in DB
+          _createAuction(
+            result,
+            auctionId,
+            auctionOwner,
+            auctionType,
+            assetTokenId,
+            assetQuantity,
+            tokenContractAddress,
+            startTime,
+          );
+
           console.log('syncedblock create Dutch', config.LAST_SYNCED_BLOCK);
         }
       }
     },
-    );
-    const subscribingBasketAuctionCreateProxy = await web3.eth.subscribe(
-      "logs",
-      {
-        address: config.NETWORK_CONFIG.PROXY_ADDRESS.toLowerCase(),
-      },
-  
-      async function (err, result3) {
-        if (
-          !err &&
-          result3.address.toLowerCase() ===
-            config.NETWORK_CONFIG.PROXY_ADDRESS.toLowerCase() &&
-            result3.topics[0] === config.EVENT_TOPIC_SIGNATURES.BASKET_AUCTION_CREATE_PROXY
-        ) {
-  
-         console.log("Result basket auction from Dutch ",result3);
-        const auctionID = web3.eth.abi.decodeParameter("uint256", result3.topics[1]);
-        const auctionOwner =  web3.eth.abi.decodeParameter("address", result3.topics[2]);
-        const basketId  = web3.eth.abi.decodeParameter("uint256", result3.topics[3]);
-          const auctionTypeHex = "0x" + result3.data.substring(130,194);
-          const auctionTypeDecode = web3.utils.hexToUtf8(auctionTypeHex);
-  
-          //check if transaction hash already exists
-  
-          const seenTx = await seenTransactionModel.findOne({
-            transactionHash: result3.transactionHash,
-          });
-          console.log("seenTx", seenTx);
-          if (seenTx) {
-            console.log("transaction already applied ");
-            return;
-          }
-  
-          //save in DB
-  
-          if (auctionTypeDecode == "dutch") {
-  
-            _createBasketAuction(
-              result3.transactionHash,
-              result3,
-              auctionID,
-              auctionOwner,
-              auctionTypeDecode,
-              basketId,
-              startTimeDecode,
-            );
-            console.log("syncedblock create", config.LAST_SYNCED_BLOCK);
-          }
-         }
-      }
+  );
 
-    );
+  // Subscribing BasketAuctionCreateProxy event
+  await web3.eth.subscribe(
+    'logs',
+    {
+      address: config.NETWORK_CONFIG.PROXY_ADDRESS.toLowerCase(),
+    },
+
+    async function (err, result) {
+      if (
+        !err &&
+        result.address.toLowerCase() ===
+          config.NETWORK_CONFIG.PROXY_ADDRESS.toLowerCase() &&
+        result.topics[0] ===
+          config.EVENT_TOPIC_SIGNATURES.BASKET_AUCTION_CREATE_PROXY
+      ) {
+        console.log('Result basket auction from Dutch ', result);
+
+        //check if transaction hash already exists
+        const seenTx = await seenTransactionModel.findOne({
+          transactionHash: result.transactionHash,
+        });
+        console.log('seenTx', seenTx);
+        if (seenTx) {
+          console.log('transaction already applied ');
+          return;
+        }
+
+        console.log(
+          `decoding ${PROXY_AUCTION_ABI[3]['name']} eventLogs DutchAuctionEvents`,
+        );
+        const decodedData = web3.eth.abi.decodeLog(
+          PROXY_AUCTION_ABI[3]['inputs'],
+          result.data,
+          result.topics.slice(1),
+        );
+
+        const auctionId = decodedData.auctionId;
+        const auctionType = decodedData.auction_type;
+        const auctionOwner = decodedData.auctionOwner;
+        const basketId = decodedData.basketId;
+        //save in DB
+
+        if (auctionType == 'dutch') {
+          _createBasketAuction(
+            result,
+            auctionId,
+            auctionOwner,
+            auctionType,
+            basketId,
+            startTime,
+          );
+          console.log('syncedblock create', config.LAST_SYNCED_BLOCK);
+        }
+      }
+    },
+  );
   // function heartbeat() {
   //   if (!subscribingTransfer || !subscribingTransfer.id) {
   //     return;
@@ -171,14 +186,7 @@ const DutchCreateAuctionEventSubscription = async function () {
 const DutchConfigureAuctionEventSubscription = async function () {
   await updateLastSyncedBlock();
 
-  let openingPriceDecode;
-  let auctionID;
-  let auctionOwner;
-  let startTimeDecode;
-  let reservePriceDecode;
-  let roundDurationDecode;
-  let dropAmountDecode;
-
+  // Subscribing to AuctionConfigure Dutch event
   await web3.eth.subscribe(
     'logs',
     {
@@ -189,7 +197,8 @@ const DutchConfigureAuctionEventSubscription = async function () {
         !err &&
         result.address.toLowerCase() ===
           config.NETWORK_CONFIG.DUTCH_CONTRACT_ADDRESS.toLowerCase() &&
-        result.topics[0] === config.EVENT_TOPIC_SIGNATURES.DUTCH_CONFIGURE_AUCTION
+        result.topics[0] ===
+          config.EVENT_TOPIC_SIGNATURES.DUTCH_CONFIGURE_AUCTION
       ) {
         console.log('result Configure ', result);
         const seenTx = await seenTransactionModel.findOne({
@@ -201,49 +210,32 @@ const DutchConfigureAuctionEventSubscription = async function () {
           );
           return;
         }
-        console.log('syncedBlock configure', config.LAST_SYNCED_BLOCK);
-
-        auctionID = web3.eth.abi.decodeParameter('uint256', result.topics[1]);
-        auctionOwner = web3.eth.abi.decodeParameter(
-          'address',
-          result.topics[2],
+        console.log(
+          `decoding ${DUTCH_CONTRACT_ABI[2]['name']} eventLogs in DutchAuctionEvents`,
         );
-        startTimeDecode = web3.eth.abi.decodeParameter(
-          'uint256',
-          result.data.substring(0, 66),
+        const decodedData = web3.eth.abi.decodeLog(
+          DUTCH_CONTRACT_ABI[2]['inputs'],
+          result.data,
+          result.topics.slice(1),
         );
-
-        const reservePriceHex = '0x' + result.data.substring(66, 130);
-        reservePriceDecode = web3.eth.abi.decodeParameter(
-          'uint256',
-          reservePriceHex,
-        );
-
-        const dropAmountHex = '0x' + result.data.substring(130, 194);
-        dropAmountDecode = web3.eth.abi.decodeParameter(
-          'uint256',
-          dropAmountHex,
-        );
-        const openingPriceHex = '0x' + result.data.substring(194, 258);
-        openingPriceDecode = web3.eth.abi.decodeParameter(
-          'uint256',
-          openingPriceHex,
-        );
-        const roundDurationHex = '0x' + result.data.substring(258, 322);
-        roundDurationDecode = web3.eth.abi.decodeParameter(
-          'uint256',
-          roundDurationHex,
-        );
+        const auctionId = decodedData.auctionId;
+        const startTime = decodedData.startTime;
+        const reservePrice = decodedData.reservePrice;
+        const dropAmount = decodedData.dropAmount;
+        const openingPrice = decodedData.openingPrice;
+        const roundDuration = decodedData.roundDuration;
 
         await _configureAuction(
           result,
-          auctionID,
-          openingPriceDecode,
-          roundDurationDecode,
-          startTimeDecode,
-          reservePriceDecode,
-          dropAmountDecode,
+          auctionId,
+          openingPrice,
+          roundDuration,
+          startTime,
+          reservePrice,
+          dropAmount,
         );
+
+        console.log('syncedBlock configure', config.LAST_SYNCED_BLOCK);
       }
     },
   );
@@ -251,6 +243,8 @@ const DutchConfigureAuctionEventSubscription = async function () {
 
 const DutchAcceptPriceEventSubscription = async function () {
   await updateLastSyncedBlock();
+
+  // Subscribing to AcceptPrice dutch event
   await web3.eth.subscribe(
     'logs',
     {
@@ -273,20 +267,20 @@ const DutchAcceptPriceEventSubscription = async function () {
           );
           return;
         }
-        const auctionID = web3.eth.abi.decodeParameter(
-          'uint256',
-          result.topics[1],
-        );
-        const winningBid = web3.eth.abi.decodeParameter(
-          'uint256',
-          result.topics[2],
-        );
-        const auctionWinner = web3.eth.abi.decodeParameter(
-          'address',
-          result.topics[3],
-        );
 
-        await _acceptPrice(result, auctionID, winningBid, auctionWinner);
+        console.log(
+          `decoding ${DUTCH_CONTRACT_ABI[5]['name']} eventLogs in DutchAuctionEvents`,
+        );
+        const decodedData = web3.eth.abi.decodeLog(
+          DUTCH_CONTRACT_ABI[5]['inputs'],
+          result.data,
+          result.topics.slice(1),
+        );
+        const auctionId = decodedData.auctionId;
+        const winningBid = decodedData.winningBid;
+        const auctionWinner = decodedData.winner;
+
+        await _acceptPrice(result, auctionId, winningBid, auctionWinner);
         console.log('syncedBlock bid', config.LAST_SYNCED_BLOCK);
       }
     },
@@ -295,6 +289,8 @@ const DutchAcceptPriceEventSubscription = async function () {
 
 const DutchAuctionCancelEventSubscription = async function () {
   await updateLastSyncedBlock();
+
+  // Subscribing to AuctionCancel dutch event
   await web3.eth.subscribe(
     'logs',
     {
@@ -317,12 +313,18 @@ const DutchAuctionCancelEventSubscription = async function () {
           );
           return;
         }
-        const auctionID = web3.eth.abi.decodeParameter(
-          'uint256',
-          result.topics[1],
-        );
 
-        await _cancelAuction(element, auctionID);
+        console.log(
+          `decoding ${DUTCH_CONTRACT_ABI[1]['name']} eventLogs in DutchAuctionEvents`,
+        );
+        const decodedData = web3.eth.abi.decodeLog(
+          DUTCH_CONTRACT_ABI[1]['inputs'],
+          result.data,
+          result.topics.slice(1),
+        );
+        const auctionId = decodedData.auctionId;
+
+        await _cancelAuction(element, auctionId);
         console.log('syncedBlock Cancel 1', config.LAST_SYNCED_BLOCK);
       }
     },
@@ -387,84 +389,99 @@ const scrapeDutchAuctionEventLogs = async function () {
           );
           continue;
         }
+
         switch (element.event) {
-          case 'AuctionCreate':
-            let tokenContractAddress;
-            let tokenID;
-            let auctiontype;
+          case 'AuctionCreate': {
             for (item of allEventLogsProxy) {
               if (
                 item.event == 'AuctionCreateProxy' &&
-                item.returnValues.auction_type === AUCTION.DUTCH_AUCTION &&
+                item.returnValues.auction_type === AUCTION.DUTCH &&
                 item.transactionHash == element.transactionHash
               ) {
-                tokenContractAddress = item.returnValues.tokenContractAddress;
-                tokenID = item.returnValues.tokenId;
-                auctiontype = item.returnValues.auction_type;
-                if (auctiontype === AUCTION.DUTCH_AUCTION) {
+                const auctionId = element.returnValues.auctionId;
+                const auctionOwner = element.returnValues.auctionOwner;
+                const tokenContractAddress =
+                  item.returnValues.tokenContractAddress;
+                const assetTokenId = item.returnValues.tokenId;
+                const assetQuantity = item.returnValues.quantity;
+                const auctionType = item.returnValues.auction_type;
+                const startTime = element.returnValues.startTime;
+                if (auctiontype === AUCTION.DUTCH) {
                   promises.push(
                     _createAuction(
-                      element.transactionHash,
                       element,
-                      element.returnValues.auctionId,
-                      element.returnValues.auctionOwner,
-                      auctiontype,
-                      tokenID,
+                      auctionId,
+                      auctionOwner,
+                      auctionType,
+                      assetTokenId,
+                      assetQuantity,
                       tokenContractAddress,
-                      element.returnValues.startTime,
+                      startTime,
                     ),
                   );
                 }
-              }
-              else if(item.event == 'BasketAuctionCreateProxy' &&
-              item.returnValues.auction_type === AUCTION.DUTCH_AUCTION &&
-              item.transactionHash == element.transactionHash){
-                auctiontype = item.returnValues.auction_type;
-                promises.push(_createBasketAuction(
-                    element.transactionHash,
+              } else if (
+                item.event == 'BasketAuctionCreateProxy' &&
+                item.returnValues.auction_type === AUCTION.DUTCH &&
+                item.transactionHash == element.transactionHash
+              ) {
+                const auctionId = element.returnValues.auctionId;
+                const auctionOwner = element.returnValues.auctionOwner;
+                const auctiontype = item.returnValues.auction_type;
+                const basketId = item.returnValues.basketId;
+                const startTime = element.returnValues.startTime;
+                promises.push(
+                  _createBasketAuction(
                     element,
-                    element.returnValues.auctionId,
-                    element.returnValues.auctionOwner,
+                    auctionId,
+                    auctionOwner,
                     auctiontype,
-                    item.returnValues.basketId,
-                    element.returnValues.startTime,
-                  ));
+                    basketId,
+                    startTime,
+                  ),
+                );
               }
             }
-            
             break;
+          }
 
-          case 'AuctionConfigure':
-            let openingPriceDecode = element.returnValues.openingPrice;
-            let reservePriceDecode = element.returnValues.reservePrice;
-            let startTimestamp = element.returnValues.startTime;
-            let dropAmount = element.returnValues.dropAmount;
-            let roundDuration = element.returnValues.roundDuration;
-            let auctionID = element.returnValues.auctionId;
+          case 'AuctionConfigure': {
+            const openingPrice = element.returnValues.openingPrice;
+            const reservePrice = element.returnValues.reservePrice;
+            const startTimestamp = element.returnValues.startTime;
+            const dropAmount = element.returnValues.dropAmount;
+            const roundDuration = element.returnValues.roundDuration;
+            const auctionId = element.returnValues.auctionId;
             promises.push(
               _configureAuction(
                 element,
-                auctionID,
-                openingPriceDecode,
+                auctionId,
+                openingPrice,
                 roundDuration,
                 startTimestamp,
-                reservePriceDecode,
+                reservePrice,
                 dropAmount,
               ),
             );
             break;
-          case 'PriceAccept':
-            let AuctionId = element.returnValues.auctionId;
-            let winBid = element.returnValues.winningBid;
-            let auctionWinner = element.returnValues.winner;
+          }
+
+          case 'PriceAccept': {
+            const auctionId = element.returnValues.auctionId;
+            const winBid = element.returnValues.winningBid;
+            const auctionWinner = element.returnValues.winner;
             promises.push(
-              _acceptPrice(element, AuctionId, winBid, auctionWinner),
+              _acceptPrice(element, auctionId, winBid, auctionWinner),
             );
 
             break;
-          case 'AuctionCancel':
-            let auctionId = element.returnValues.auctionId;
+          }
+
+          case 'AuctionCancel': {
+            const auctionId = element.returnValues.auctionId;
             promises.push(_cancelAuction(element, auctionId));
+            break;
+          }
           default:
             break;
         }
@@ -528,77 +545,89 @@ const initScrapeDutchAuctionEventLogs = async function (lastSeenBlockRes) {
           continue;
         }
         switch (element.event) {
-          case 'AuctionCreate':
-            let tokenContractAddress;
-            let tokenID;
-            let auctiontype;
+          case 'AuctionCreate': {
             for (item of allEventLogsProxy) {
               if (
                 item.event == 'AuctionCreateProxy' &&
-                item.returnValues.auction_type === AUCTION.DUTCH_AUCTION &&
+                item.returnValues.auction_type === AUCTION.DUTCH &&
                 item.transactionHash == element.transactionHash
               ) {
-                tokenContractAddress = item.returnValues.tokenContractAddress;
-                tokenID = item.returnValues.tokenId;
-                auctiontype = item.returnValues.auction_type;
-                if (auctiontype === AUCTION.DUTCH_AUCTION) {
-                  _createAuction(
-                    element.transactionHash,
+                const auctionId = element.returnValues.auctionId;
+                const auctionOwner = element.returnValues.auctionOwner;
+                const tokenContractAddress =
+                  item.returnValues.tokenContractAddress;
+                const assetTokenId = item.returnValues.tokenId;
+                const assetQuantity = item.returnValues.quantity;
+                const auctionType = item.returnValues.auction_type;
+                const startTime = element.returnValues.startTime;
+                if (auctionType === AUCTION.DUTCH) {
+                  await _createAuction(
                     element,
-                    element.returnValues.auctionId,
-                    element.returnValues.auctionOwner,
-                    auctiontype,
-                    tokenID,
+                    auctionId,
+                    auctionOwner,
+                    auctionType,
+                    assetTokenId,
+                    assetQuantity,
                     tokenContractAddress,
-                    element.returnValues.startTime,
+                    startTime,
                   );
                 }
-              }
-              else if(item.event == 'BasketAuctionCreateProxy' &&
-              item.returnValues.auction_type === AUCTION.DUTCH_AUCTION &&
-              item.transactionHash == element.transactionHash){
-                auctiontype = item.returnValues.auction_type;
-                  _createBasketAuction(
-                    element.transactionHash,
-                    element,
-                    element.returnValues.auctionID,
-                    element.returnValues.auctionOwner,
-                    auctiontype,
-                    item.returnValues.basketId,
-                    element.returnValues.startTime,
-                    element.returnValues.endTime,
-                  );
+              } else if (
+                item.event == 'BasketAuctionCreateProxy' &&
+                item.returnValues.auction_type === AUCTION.DUTCH &&
+                item.transactionHash == element.transactionHash
+              ) {
+                const auctionId = element.returnValues.auctionId;
+                const auctionOwner = element.returnValues.auctionOwner;
+                const auctiontype = item.returnValues.auction_type;
+                const basketId = item.returnValues.basketId;
+                const startTime = element.returnValues.startTime;
+                await _createBasketAuction(
+                  element,
+                  auctionId,
+                  auctionOwner,
+                  auctiontype,
+                  basketId,
+                  startTime,
+                );
               }
             }
-
             break;
+          }
 
-          case 'AuctionConfigure':
-            let openingPriceDecode = element.returnValues.openingPrice;
-            let reservePriceDecode = element.returnValues.reservePrice;
-            let startTimestamp = element.returnValues.startTime;
-            let dropAmount = element.returnValues.dropAmount;
-            let roundDuration = element.returnValues.roundDuration;
-            let auctionID = element.returnValues.auctionId;
-            _configureAuction(
+          case 'AuctionConfigure': {
+            const openingPrice = element.returnValues.openingPrice;
+            const reservePrice = element.returnValues.reservePrice;
+            const startTimestamp = element.returnValues.startTime;
+            const dropAmount = element.returnValues.dropAmount;
+            const roundDuration = element.returnValues.roundDuration;
+            const auctionId = element.returnValues.auctionId;
+            await _configureAuction(
               element,
-              auctionID,
-              openingPriceDecode,
+              auctionId,
+              openingPrice,
               roundDuration,
               startTimestamp,
-              reservePriceDecode,
+              reservePrice,
               dropAmount,
             );
             break;
-          case 'PriceAccept':
-            let AuctionId = element.returnValues.auctionId;
-            let winBid = element.returnValues.winningBid;
-            let auctionWinner = element.returnValues.winner;
-            _acceptPrice(element, AuctionId, winBid, auctionWinner);
+          }
+
+          case 'PriceAccept': {
+            const auctionId = element.returnValues.auctionId;
+            const winBid = element.returnValues.winningBid;
+            const auctionWinner = element.returnValues.winner;
+            await _acceptPrice(element, auctionId, winBid, auctionWinner);
+
             break;
-          case 'AuctionCancel':
-            let auctionId = element.returnValues.auctionId;
-            _cancelAuction(element, auctionId);
+          }
+
+          case 'AuctionCancel': {
+            const auctionId = element.returnValues.auctionId;
+            await _cancelAuction(element, auctionId);
+            break;
+          }
           default:
             break;
         }
@@ -617,27 +646,38 @@ const initScrapeDutchAuctionEventLogs = async function (lastSeenBlockRes) {
 };
 
 async function _createAuction(
-  txHash,
-  EventLog,
-  auctionID,
+  eventLog,
+  auctionId,
   auctionOwner,
-  auctiontype,
-  tokenID,
+  auctionType,
+  assetTokenId,
+  assetQuantity,
   tokenContractAddress,
   startTime,
 ) {
-  console.log('### Create Dutch Auction ###');
-  const getAssetId = await assetsModel.findOne({
-    assetContractAddress: tokenContractAddress,
-    assetTokenId: tokenID,
+  const getAuction = await auctionModel.findOne({
+    auctionId: auctionId,
   });
-  if(getAssetId){
+
+  if (getAuction) {
+    console.log('Auction Id already exists');
+    return;
+  }
+
+  console.log('### Create Dutch Auction ###');
+  const getAsset = await assetsModel.findOne({
+    assetContractAddress: tokenContractAddress,
+    assetTokenId: assetTokenId,
+    owner: auctionOwner,
+  });
+  if (getAsset) {
     const dbAuction = new auctionModel({
-      auctionId: auctionID,
+      auctionId: auctionId,
       seller: auctionOwner,
       state: 'NOT-STARTED',
-      auctionType: auctiontype,
-      assetTokenId: tokenID,
+      auctionType: auctionType,
+      assetTokenId: assetTokenId,
+      assetQuantity: assetQuantity,
       tokenContract: tokenContractAddress,
       dutchAuctionAttribute: {
         opening_price: 0,
@@ -648,87 +688,81 @@ async function _createAuction(
         drop_amount: 0,
         winning_bid: 0,
       },
-      assetId: getAssetId.assetId,
-      fk_assetId: getAssetId._id,
+      assetId: getAsset.assetId,
+      fk_assetId: getAsset._id,
     });
     await dbAuction.save();
   }
+
   const seentx = new seenTransactionModel({
-    transactionHash: EventLog.transactionHash,
-    blockNumber: EventLog.blockNumber,
-    eventLog: EventLog,
+    transactionHash: eventLog.transactionHash,
+    blockNumber: eventLog.blockNumber,
+    eventLog: eventLog,
     state: 'APPLIED',
   });
   await seentx.save();
 }
 
 async function _createBasketAuction(
-  txHash,
-  EventLog,
-  auctionID,
+  eventLog,
+  auctionId,
   auctionOwner,
   auctionType,
   basketId,
   startTime,
 ) {
-  let getBasket = await basketModel.findOne({
-      basketId:basketId
+  const getBasket = await basketModel.findOne({
+    basketId: basketId,
   });
-    if(getBasket){
-      console.log(" ### Create Dutch Basket Auction ### ");
-      const dbAuction = new auctionModel({
-        auctionId: auctionID,
-        seller: auctionOwner,
-        state: 'NOT-STARTED',
-        auctionType: auctionType,
-        basketId: basketId,
-        fk_basketId: getBasket._id,
-        dutchAuctionAttribute: {
-          opening_price: 0,
-          round_duration: 0,
-          start_timestamp: startTime * 1000,
-          start_datetime: new Date(startTime * 1000),
-          reserve_price: 0,
-          drop_amount: 0,
-          winning_bid: 0,
-        },
-      });
-      await dbAuction.save();
-    
-      //update basket with auction details
-       getBasket = await basketModel.findOne({
-        basketId:basketId
+  if (getBasket) {
+    console.log(' ### Create Dutch Basket Auction ### ');
+    const dbAuction = new auctionModel({
+      auctionId: auctionId,
+      seller: auctionOwner,
+      state: 'NOT-STARTED',
+      auctionType: auctionType,
+      basketId: basketId,
+      fk_basketId: getBasket._id,
+      dutchAuctionAttribute: {
+        opening_price: 0,
+        round_duration: 0,
+        start_timestamp: startTime * 1000,
+        start_datetime: new Date(startTime * 1000),
+        reserve_price: 0,
+        drop_amount: 0,
+        winning_bid: 0,
+      },
     });
-       await getBasket.update({auctionId:auctionID,fk_auctionId:dbAuction._id});
-    }
+    await dbAuction.save();
+    await getBasket.update({ basketState: BASKET_STATES.LISTED });
+  }
   const seentx = new seenTransactionModel({
-    transactionHash: EventLog.transactionHash,
-    blockNumber: EventLog.blockNumber,
-    eventLog: EventLog,
+    transactionHash: eventLog.transactionHash,
+    blockNumber: eventLog.blockNumber,
+    eventLog: eventLog,
     state: 'APPLIED',
   });
   await seentx.save();
 }
 
-
 async function _configureAuction(
-  element,
-  auctionID,
-  openingPriceDecode,
+  eventLog,
+  auctionId,
+  openingPrice,
   roundDuration,
   startTimestamp,
-  reservePriceDecode,
+  reservePrice,
   dropAmount,
 ) {
   await auctionModel.updateOne(
-    { auctionId: auctionID },
+    { auctionId: auctionId },
     {
       dutchAuctionAttribute: {
-        opening_price: openingPriceDecode,
+        opening_price: openingPrice,
         round_duration: roundDuration,
         start_timestamp: startTimestamp * 1000,
         start_datetime: new Date(startTimestamp * 1000),
-        reserve_price: reservePriceDecode,
+        reserve_price: reservePrice,
         drop_amount: dropAmount,
         winning_bid: 0,
       },
@@ -736,22 +770,22 @@ async function _configureAuction(
     },
   );
 
-  await listAssetHistoryHelper(auctionID, AUCTION.DUTCH_AUCTION,element);
+  await listAssetHistoryHelper(eventLog, auctionId, AUCTION.DUTCH);
 
   const seentxConfigure = new seenTransactionModel({
-    transactionHash: element.transactionHash,
-    blockNumber: element.blockNumber,
-    eventLog: element,
+    transactionHash: eventLog.transactionHash,
+    blockNumber: eventLog.blockNumber,
+    eventLog: eventLog,
     state: 'APPLIED',
   });
   await seentxConfigure.save();
 }
 
-async function _acceptPrice(element, auctionId, winBid, auctionWinner) {
+async function _acceptPrice(eventLog, auctionId, winningBid, auctionWinner) {
   await auctionModel.updateMany(
     { auctionId: auctionId },
     {
-      $set: { 'dutchAuctionAttribute.winning_bid': winBid },
+      $set: { 'dutchAuctionAttribute.winning_bid': winningBid },
       buyer: auctionWinner,
       state: 'SUCCESSFULLY-COMPLETED',
     },
@@ -759,22 +793,26 @@ async function _acceptPrice(element, auctionId, winBid, auctionWinner) {
 
   //change owner in asset schema
 
-await changeOwnership(auctionId,auctionWinner);
- 
-//make entry in asset history
- await transferAssetHistoryHelper(auctionId,AUCTION.DUTCH_AUCTION,element,winBid,auctionWinner);
+  await changeOwnership(auctionId, auctionWinner);
 
+  //make entry in asset history
+  await transferAssetHistoryHelper(
+    eventLog,
+    auctionId,
+    winningBid,
+    auctionWinner,
+  );
 
   const seentxPriceAccept = new seenTransactionModel({
-    transactionHash: element.transactionHash,
-    blockNumber: element.blockNumber,
-    eventLog: element,
+    transactionHash: eventLog.transactionHash,
+    blockNumber: eventLog.blockNumber,
+    eventLog: eventLog,
     state: 'APPLIED',
   });
   await seentxPriceAccept.save();
 }
 
-async function _cancelAuction(element, auctionId) {
+async function _cancelAuction(eventLog, auctionId) {
   await auctionModel.updateOne(
     { auctionId: auctionId },
     {
@@ -784,12 +822,12 @@ async function _cancelAuction(element, auctionId) {
   );
 
   //make entry in asset history
-  await cancelListAssetHistoryHelper(auctionId,AUCTION.DUTCH_AUCTION,element);
+  await cancelListAssetHistoryHelper(eventLog, auctionId, AUCTION.DUTCH);
 
   const seentxCancel = new seenTransactionModel({
-    transactionHash: element.transactionHash,
-    blockNumber: element.blockNumber,
-    eventLog: element,
+    transactionHash: eventLog.transactionHash,
+    blockNumber: eventLog.blockNumber,
+    eventLog: eventLog,
     state: 'APPLIED',
   });
   await seentxCancel.save();

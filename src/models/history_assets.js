@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const { MINT, LIST, TRANSFER, CANCEL_LIST } = require('../constants');
+const { ASSET_HISTORY_EVENTS } = require('../constants');
 
 const assetHistory = new mongoose.Schema({
   assetId: {
@@ -9,14 +9,36 @@ const assetHistory = new mongoose.Schema({
     {
       event: {
         type: String,
-        enum: [LIST, MINT, TRANSFER,CANCEL_LIST],
+        enum: [
+          ASSET_HISTORY_EVENTS.MINT,
+          ASSET_HISTORY_EVENTS.LIST,
+          ASSET_HISTORY_EVENTS.TRANSFER,
+          ASSET_HISTORY_EVENTS.CANCEL_LIST,
+          ASSET_HISTORY_EVENTS.BASKET_CREATE,
+          ASSET_HISTORY_EVENTS.BASKET_DESTROY,
+        ],
       },
-      price: Number,
-      event_date: String,
-      event_time: String,
-      from: String,
-      to: String,
-      actions: String,
+      eventAt: {
+        type: Date,
+      },
+      price: {
+        type: Number,
+      },
+      from: {
+        type: String,
+      },
+      to: {
+        type: String,
+      },
+      assetQuantity: {
+        type: Number,
+      },
+      basketId: {
+        type: Number,
+      },
+      actions: {
+        type: String,
+      },
     },
   ],
 });
