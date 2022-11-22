@@ -5,16 +5,29 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node -r dotenv/config src/app.js"
+    "start": "node -r dotenv/config src/app.js",
+    "format-lint": "npm run prettier && npm run eslint:fix",
+    "eslint": "npx eslint ./src ./seeder.js --ext .js",
+    "eslint:fix": "npm run eslint -- --fix",
+    "prettier": "npx prettier --write src seeder.js",
+    "prepare": "husky install"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
     "axios": "^0.27.2",
+    "body-parser": "^1.20.1",
     "cron": "^2.0.0",
     "dotenv": "^16.0.1",
     "express": "^4.18.1",
     "mongoose": "6.2.8",
     "web3": "^1.7.3"
+  },
+  "devDependencies": {
+    "eslint": "^8.28.0",
+    "eslint-config-prettier": "^8.5.0",
+    "eslint-plugin-node": "^11.1.0",
+    "prettier": "^2.7.1",
+    "husky": "^8.0.0"
   }
 }

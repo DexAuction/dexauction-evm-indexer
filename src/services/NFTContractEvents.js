@@ -198,7 +198,7 @@ const scrapeNftContractEventLogs = async function () {
           },
         );
         console.log('allEventLogs ', allEventLogs);
-        for (let element of allEventLogs) {
+        for (const element of allEventLogs) {
           const seenTx = await seenTransactionModel.findOne({
             transactionHash: element.transactionHash,
           });
@@ -299,7 +299,7 @@ const initScrapeNftContractEventLogs = async function (nftContracts) {
           },
         );
         console.log('Init allEventLogs ', allEventLogs);
-        for (let element of allEventLogs) {
+        for (const element of allEventLogs) {
           const seenTx = await seenTransactionModel.findOne({
             transactionHash: element.transactionHash,
           });
@@ -311,7 +311,7 @@ const initScrapeNftContractEventLogs = async function (nftContracts) {
           }
           switch (element.event) {
             case 'Transfer':
-              if (element.returnValues.from == ZERO_ADDRESS) {
+              if (element.returnValues.from === ZERO_ADDRESS) {
                 await _createAsset(
                   element,
                   element.returnValues.tokenId,

@@ -1,4 +1,4 @@
-const mongoose = require("mongoose");
+const mongoose = require('mongoose');
 
 const auction = new mongoose.Schema({
   auctionId: {
@@ -7,7 +7,7 @@ const auction = new mongoose.Schema({
   },
   auctionType: {
     type: String,
-    enum: ["fpl", "dutch", "english", "sealed-bid", "vickery"],
+    enum: ['fpl', 'dutch', 'english', 'sealed-bid', 'vickery'],
   },
   seller: {
     type: String,
@@ -21,11 +21,11 @@ const auction = new mongoose.Schema({
   state: {
     type: String,
     enum: [
-      "NOT-STARTED",
-      "ONGOING",
-      "SUCCESSFULLY-COMPLETED",
-      "CANCELLED",
-      "EXPIRED",
+      'NOT-STARTED',
+      'ONGOING',
+      'SUCCESSFULLY-COMPLETED',
+      'CANCELLED',
+      'EXPIRED',
     ],
   },
   englishAuctionAttribute: {
@@ -44,7 +44,7 @@ const auction = new mongoose.Schema({
         address: String,
         bid: Number,
         bid_timestamp: String,
-        txHash : String
+        txHash: String,
       },
     ],
   },
@@ -69,19 +69,19 @@ const auction = new mongoose.Schema({
   assetId: {
     type: Number,
   },
-  fk_assetId:{
+  fk_assetId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref:'assets'
+    ref: 'assets',
   },
   basketId: {
     type: Number,
   },
-  fk_basketId : {
+  fk_basketId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref:'baskets'
+    ref: 'baskets',
   },
 });
 
-auction.set("timestamps", true);
+auction.set('timestamps', true);
 
-module.exports = mongoose.model("auctions", auction);
+module.exports = mongoose.model('auctions', auction);

@@ -1,4 +1,4 @@
-const mongoose = require("mongoose");
+const mongoose = require('mongoose');
 
 const store = new mongoose.Schema({
   storeId: {
@@ -9,14 +9,14 @@ const store = new mongoose.Schema({
   },
   network: {
     type: String,
-    enum: ["ethererum", "polygon", "binance-smart-chain"],
+    enum: ['ethererum', 'polygon', 'binance-smart-chain'],
   },
   storeURL: {
     type: String,
   },
   storeStatus: {
     type: String,
-    enum: ["active", "deactivated"],
+    enum: ['active', 'deactivated'],
   },
   assetCategories: {
     type: [String],
@@ -29,7 +29,7 @@ const store = new mongoose.Schema({
   },
   publishStatus: {
     type: String,
-    enum: ["published", "unpublished"],
+    enum: ['published', 'unpublished'],
   },
 });
-module.exports = mongoose.model("stores", store);
+module.exports = mongoose.model('stores', store);

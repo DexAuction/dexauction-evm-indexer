@@ -1,4 +1,4 @@
-const mongoose = require("mongoose");
+const mongoose = require('mongoose');
 
 const seen_transaction = new mongoose.Schema({
   transactionHash: {
@@ -15,9 +15,9 @@ const seen_transaction = new mongoose.Schema({
   },
   state: {
     type: String,
-    enum: ["APPLIED"],
+    enum: ['APPLIED'],
   },
 });
-seen_transaction.set("timestamps", true);
+seen_transaction.set('timestamps', true);
 
-module.exports = mongoose.model("seen_transaction", seen_transaction);
+module.exports = mongoose.model('seen_transaction', seen_transaction);
