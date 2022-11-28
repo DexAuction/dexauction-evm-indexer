@@ -10,6 +10,7 @@ const {seedDbEntriesNFT,seedDbEntriesLastSeenBlock } = require("../seeder");
 app.use(bodyParser.json());
 // parse requests of content-type - application/x-www-form-urlencoded
 app.use(bodyParser.urlencoded({ extended: true }));
+app.use("/api/event", require("./api/event"));
 const Web3 = require("web3");
 const config = require("./config");
 const web3 = new Web3(config.NETWORK_CONFIG.WS_NETWORK_URL);
