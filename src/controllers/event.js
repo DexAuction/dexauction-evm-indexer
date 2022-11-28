@@ -5,8 +5,7 @@ const axios = require('axios');
 const { ZERO_ADDRESS } = require('../constants') ;
 class EventController {
   async eventExtract(req, res) {
-    console.log("web3",web3);
-    //request: Contract address, network, start block, to block, mint event
+    //request: Contract address, network, start block, to block, event name
     const URL = `https://api.polygonscan.com/api?module=contract&action=getabi&address=${req.query.contractAddress}&apikey=${config.NETWORK_CONFIG.POLYSCAN_API_KEY}`;
     let response = await axios.get(URL);
     const abi = JSON.parse(response.data.result);
