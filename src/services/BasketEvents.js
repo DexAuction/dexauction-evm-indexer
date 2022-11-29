@@ -44,7 +44,9 @@ const BasketCreateEventSubscription = async function () {
           return;
         }
 
-        console.log(`decoding ${PROXY_AUCTION_ABI[4]['name']} eventLogs in BasketEvents`);
+        console.log(
+          `decoding ${PROXY_AUCTION_ABI[4]['name']} eventLogs in BasketEvents`,
+        );
         const decodedData = web3.eth.abi.decodeLog(
           PROXY_AUCTION_ABI[4]['inputs'],
           result.data,
@@ -119,7 +121,9 @@ const BasketDestroyEventSubscription = async function () {
           return;
         }
 
-        console.log(`decoding ${PROXY_AUCTION_ABI[5]['name']} eventLogs in BasketEvents`);
+        console.log(
+          `decoding ${PROXY_AUCTION_ABI[5]['name']} eventLogs in BasketEvents`,
+        );
         const decodedData = web3.eth.abi.decodeLog(
           PROXY_AUCTION_ABI[5]['inputs'],
           result.data,
@@ -175,7 +179,7 @@ const scrapeCreateBasketEventLogs = async function () {
         toBlock: to_Block,
       });
       console.log('allEventLogs ', allEventLogs);
-      for (element of allEventLogs) {
+      for (const element of allEventLogs) {
         const seenTx = await seenTransactionModel.findOne({
           transactionHash: element.transactionHash,
         });
@@ -268,7 +272,7 @@ const initScrapeCreateBasketEventLogs = async function (lastSeenBlockRes) {
         toBlock: to_Block,
       });
       console.log('Init allEventLogs ', allEventLogs);
-      for (element of allEventLogs) {
+      for (const element of allEventLogs) {
         const seenTx = await seenTransactionModel.findOne({
           transactionHash: element.transactionHash,
         });

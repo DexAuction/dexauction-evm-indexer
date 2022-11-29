@@ -1,0 +1,11 @@
+{
+  "extends": ["eslint:recommended", "plugin:node/recommended", "prettier"],
+  "rules": {
+    "camelcase": "warn",
+    "node/no-unsupported-features/es-syntax": "off",
+    "semi": "error",
+    "semi-spacing": "error",
+    "semi-style": ["error", "last"],
+    "sort-imports": "error"
+  }
+}

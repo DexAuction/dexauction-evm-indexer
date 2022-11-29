@@ -1,4 +1,4 @@
-const mongoose = require("mongoose");
+const mongoose = require('mongoose');
 
 const collection = new mongoose.Schema({
   collectionId: {
@@ -6,7 +6,7 @@ const collection = new mongoose.Schema({
   },
   tokenStandard: {
     type: String,
-    enum: ["ERC-721", "ERC-1155"],
+    enum: ['ERC-721', 'ERC-1155'],
   },
   contractAddress: {
     type: String,
@@ -34,7 +34,7 @@ const collection = new mongoose.Schema({
   },
   fk_storeId: {
     type: mongoose.Types.ObjectId,
-    ref: "stores",
+    ref: 'stores',
   },
 });
-module.exports = mongoose.model("collections", collection);
+module.exports = mongoose.model('collections', collection);
