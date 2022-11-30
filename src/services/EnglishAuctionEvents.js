@@ -477,7 +477,7 @@ const scrapeEnglishAuctionEventLogs = async function () {
       console.log('allEventLogsProxy English', allEventLogsProxy);
       console.log('allEventLogs', allEventLogs);
       let promises = [];
-      for (element of allEventLogs) {
+      for (const element of allEventLogs) {
         const seenTx = await seenTransactionModel.findOne({
           transactionHash: element.transactionHash,
         });
@@ -489,7 +489,7 @@ const scrapeEnglishAuctionEventLogs = async function () {
         }
         switch (element.event) {
           case 'AuctionCreate': {
-            for (item of allEventLogsProxy) {
+            for (const item of allEventLogsProxy) {
               if (
                 item.event === 'AuctionCreateProxy' &&
                 item.returnValues.auction_type === AUCTION.ENGLISH &&
@@ -637,7 +637,7 @@ const initScrapeEnglishAuctionEventLogs = async function (lastSeenBlockRes) {
       console.log('allEventLogsProxy English Init', allEventLogsProxy);
       console.log('allEventLogs Init', allEventLogs);
 
-      for (element of allEventLogs) {
+      for (const element of allEventLogs) {
         const seenTx = await seenTransactionModel.findOne({
           transactionHash: element.transactionHash,
         });
@@ -649,7 +649,7 @@ const initScrapeEnglishAuctionEventLogs = async function (lastSeenBlockRes) {
         }
         switch (element.event) {
           case 'AuctionCreate': {
-            for (item of allEventLogsProxy) {
+            for (const item of allEventLogsProxy) {
               if (
                 item.event === 'AuctionCreateProxy' &&
                 item.returnValues.auction_type === AUCTION.ENGLISH &&

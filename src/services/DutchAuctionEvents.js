@@ -324,7 +324,7 @@ const DutchAuctionCancelEventSubscription = async function () {
         );
         const auctionId = decodedData.auctionId;
 
-        await _cancelAuction(element, auctionId);
+        await _cancelAuction(result, auctionId);
         console.log('syncedBlock Cancel 1', config.LAST_SYNCED_BLOCK);
       }
     },
@@ -379,7 +379,7 @@ const scrapeDutchAuctionEventLogs = async function () {
       console.log('allEventLogsProxy Dutch', allEventLogsProxy);
       console.log('allEventLogs', allEventLogs);
       let promises = [];
-      for (element of allEventLogs) {
+      for (const element of allEventLogs) {
         const seenTx = await seenTransactionModel.findOne({
           transactionHash: element.transactionHash,
         });
@@ -392,7 +392,7 @@ const scrapeDutchAuctionEventLogs = async function () {
 
         switch (element.event) {
           case 'AuctionCreate': {
-            for (item of allEventLogsProxy) {
+            for (const item of allEventLogsProxy) {
               if (
                 item.event == 'AuctionCreateProxy' &&
                 item.returnValues.auction_type === AUCTION.DUTCH &&
@@ -406,7 +406,7 @@ const scrapeDutchAuctionEventLogs = async function () {
                 const assetQuantity = item.returnValues.quantity;
                 const auctionType = item.returnValues.auction_type;
                 const startTime = element.returnValues.startTime;
-                if (auctiontype === AUCTION.DUTCH) {
+                if (auctionType === AUCTION.DUTCH) {
                   promises.push(
                     _createAuction(
                       element,
@@ -534,7 +534,7 @@ const initScrapeDutchAuctionEventLogs = async function (lastSeenBlockRes) {
       console.log('allEventLogsProxy Dutch', allEventLogsProxy);
       console.log('allEventLogs', allEventLogs);
 
-      for (element of allEventLogs) {
+      for (const element of allEventLogs) {
         const seenTx = await seenTransactionModel.findOne({
           transactionHash: element.transactionHash,
         });
@@ -546,7 +546,7 @@ const initScrapeDutchAuctionEventLogs = async function (lastSeenBlockRes) {
         }
         switch (element.event) {
           case 'AuctionCreate': {
-            for (item of allEventLogsProxy) {
+            for (const item of allEventLogsProxy) {
               if (
                 item.event == 'AuctionCreateProxy' &&
                 item.returnValues.auction_type === AUCTION.DUTCH &&

@@ -442,7 +442,7 @@ async function _changeOwnership(
       const nftContractInstance = new web3.eth.Contract(
         JSON.parse(nftContract.abi),
         nftContract.tokenContract,
-      );  
+      );
       await createAssetHelper(
         dbAssetOldOwner.assetTokenId,
         auctionAssetQuantity,
