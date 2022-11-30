@@ -2,59 +2,44 @@ const mongoose = require('mongoose');
 const { BASKET_STATES } = require('../constants');
 
 const basket = new mongoose.Schema({
-  basketId: {
+  _id: {
     type: Number,
+    unique: true,
+    required: true,
   },
 
-  basketOwner: {
+  name: {
     type: String,
   },
 
-  basketState: {
+  owner: {
+    type: String,
+    required: true,
+  },
+
+  state: {
     type: String,
     enum: [
       BASKET_STATES.CREATED,
       BASKET_STATES.LISTED,
       BASKET_STATES.DESTROYED,
     ],
-  },
-
-  contractAddresses: {
-    type: [String],
-  },
-
-  assetTokenIds: {
-    type: [Number],
+    required: true,
   },
 
   quantities: {
     type: [Number],
-  },
-
-  collectionIds: {
-    type: [Number],
-  },
-
-  fk_collectionIds: {
-    type: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'collections',
-      },
-    ],
+    required: true,
   },
 
   assetIds: {
     type: [Number],
+    required: true,
   },
 
-  fk_assetIds: {
-    type: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'assets',
-      },
-    ],
+  createdBy: {
+    type: String,
+    required: true,
   },
 });
 basket.set('timestamps', true);

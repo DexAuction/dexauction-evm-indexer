@@ -1,22 +1,25 @@
 const mongoose = require('mongoose');
 
 const auction = new mongoose.Schema({
-  auctionId: {
+  _id: {
     type: Number,
     unique: true,
+    required: true,
   },
-  auctionType: {
+  type: {
     type: String,
     enum: ['fpl', 'dutch', 'english', 'sealed-bid', 'vickery'],
+    required: true,
   },
   seller: {
     type: String,
+    required: true,
   },
   buyer: {
     type: String,
   },
   bidders: {
-    type: Array,
+    type: [String],
   },
   state: {
     type: String,
@@ -27,58 +30,90 @@ const auction = new mongoose.Schema({
       'CANCELLED',
       'EXPIRED',
     ],
+    required: true,
   },
   englishAuctionAttribute: {
-    opening_price: Number,
-    current_price: Number,
-    min_increment: Number,
-    start_datetime: Date,
-    end_datetime: Date,
-    start_timestamp: Number,
-    end_timestamp: Number,
-    soft_close_duration: Number,
-    winning_bid: Number,
-    buyout_price: Number,
+    openingPrice: {
+      type: Number,
+    },
+    currentPrice: {
+      type: Number,
+    },
+    minIncrement: {
+      type: Number,
+    },
+    startDatetime: {
+      type: Date,
+    },
+    endDatetime: {
+      type: Date,
+    },
+    startTimestamp: {
+      type: Number,
+    },
+    endTimestamp: {
+      type: Number,
+    },
+    softCloseDuration: {
+      type: Number,
+    },
+    winningBid: {
+      type: Number,
+    },
+    buyoutPrice: {
+      type: Number,
+    },
     bids: [
       {
-        address: String,
-        bid: Number,
-        bid_timestamp: String,
-        txHash: String,
+        address: {
+          type: String,
+        },
+        bid: {
+          type: Number,
+        },
+        bidTimestamp: {
+          type: String,
+        },
+        txHash: {
+          type: String,
+        },
       },
     ],
   },
   dutchAuctionAttribute: {
-    opening_price: Number,
-    start_datetime: Date,
-    start_timestamp: Number,
-    round_duration: Number,
-    winning_bid: Number,
-    reserve_price: Number,
-    drop_amount: Number,
+    openingPrice: {
+      type: Number,
+    },
+    startDatetime: {
+      type: Date,
+    },
+    startTimestamp: {
+      type: Number,
+    },
+    roundDuration: {
+      type: Number,
+    },
+    winningBid: {
+      type: Number,
+    },
+    reservePrice: {
+      type: Number,
+    },
+    dropAmount: {
+      type: Number,
+    },
   },
-  tokenContract: {
+  inventoryType: {
     type: String,
+    enum: ['asset', 'basket'],
+    required: true,
   },
-  assetTokenId: {
+  inventoryId: {
     type: Number,
+    required: true,
   },
   assetQuantity: {
     type: Number,
-  },
-  assetId: {
-    type: Number,
-  },
-  fk_assetId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'assets',
-  },
-  basketId: {
-    type: Number,
-  },
-  fk_basketId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'baskets',
   },
 });
 

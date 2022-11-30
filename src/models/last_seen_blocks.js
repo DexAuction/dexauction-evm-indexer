@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 
-const last_seen_blocks = new mongoose.Schema({
+const lastSeenBlocks = new mongoose.Schema({
   blockNumberEnglish: {
     type: String,
     required: true,
@@ -14,6 +14,6 @@ const last_seen_blocks = new mongoose.Schema({
     required: true,
   },
 });
-last_seen_blocks.set('timestamps', true);
+lastSeenBlocks.set('timestamps', true);
 
-module.exports = mongoose.model('last_seen_blocks', last_seen_blocks);
+module.exports = mongoose.model('last_seen_blocks', lastSeenBlocks);

@@ -1,8 +1,8 @@
 const Web3 = require('web3');
 const config = require('../config');
 const web3 = new Web3(config.NETWORK_CONFIG.WS_NETWORK_URL);
-const seenTransactionModel = require('../models/seenTransaction');
-const NFTContractsModel = require('../models/NFT_contracts');
+const seenTransactionModel = require('../models/seen_transaction');
+const NFTContractsModel = require('../models/nft_contracts');
 const collectionModel = require('../models/collections');
 const {
   createAssetHelper,
@@ -28,7 +28,7 @@ const NftTransferEventSubscription = async function () {
     },
     async function (err, result) {
       const nftContract = await NFTContractsModel.findOne({
-        tokenContract: result.address,
+        contractAddress: result.address,
       });
       if (
         !err &&
@@ -59,10 +59,10 @@ const NftTransferEventSubscription = async function () {
           // save in database
           const NFTContractInstance = new web3.eth.Contract(
             JSON.parse(nftContract.abi),
-            nftContract.tokenContract,
+            nftContract.contractAddress,
           );
           const dbCollection = await collectionModel.findOne({
-            contractAddress: nftContract.tokenContract,
+            contractAddress: nftContract.contractAddress,
           });
 
           await _createAsset(
@@ -92,7 +92,7 @@ const ERC1155NftTransferEventSubscription = async function () {
     },
     async function (err, result) {
       const nftContract = await NFTContractsModel.findOne({
-        tokenContract: result.address,
+        contractAddress: result.address,
       });
       if (
         !err &&
@@ -124,10 +124,10 @@ const ERC1155NftTransferEventSubscription = async function () {
           // save in database
           const NFTContractInstance = new web3.eth.Contract(
             JSON.parse(nftContract.abi),
-            nftContract.tokenContract,
+            nftContract.contractAddress,
           );
           const dbCollection = await collectionModel.findOne({
-            contractAddress: nftContract.tokenContract,
+            contractAddress: nftContract.contractAddress,
           });
           await _createAsset(
             result,
@@ -172,11 +172,11 @@ const scrapeNftContractEventLogs = async function () {
     for (let nftContract of nftContracts) {
       const NFTContractInstance = new web3.eth.Contract(
         JSON.parse(nftContract.abi),
-        nftContract.tokenContract,
+        nftContract.contractAddress,
       );
 
       const dbCollection = await collectionModel.findOne({
-        contractAddress: nftContract.tokenContract,
+        contractAddress: nftContract.contractAddress,
       });
 
       const last_seen_block = nftContract.lastSeenBlock;
@@ -249,7 +249,7 @@ const scrapeNftContractEventLogs = async function () {
           }
         }
         const resp = await NFTContractsModel.findOneAndUpdate(
-          { tokenContract: nftContract.tokenContract },
+          { contractAddress: nftContract.contractAddress },
           {
             lastSeenBlock: to_Block,
           },
@@ -275,10 +275,10 @@ const initScrapeNftContractEventLogs = async function (nftContracts) {
     for (let nftContract of nftContracts) {
       const NFTContractInstance = new web3.eth.Contract(
         JSON.parse(nftContract.abi),
-        nftContract.tokenContract,
+        nftContract.contractAddress,
       );
       const dbCollection = await collectionModel.findOne({
-        contractAddress: nftContract.tokenContract,
+        contractAddress: nftContract.contractAddress,
       });
       const last_seen_block = nftContract.lastSeenBlock;
       let from_Block = parseInt(last_seen_block) + 1 + '';
@@ -345,7 +345,7 @@ const initScrapeNftContractEventLogs = async function (nftContracts) {
           }
         }
         const resp = await NFTContractsModel.findOneAndUpdate(
-          { tokenContract: nftContract.tokenContract },
+          { contractAddress: nftContract.contractAddress },
           {
             lastSeenBlock: to_Block,
           },

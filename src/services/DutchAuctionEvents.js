@@ -5,7 +5,7 @@ const auctionModel = require('../models/auctions');
 const assetsModel = require('../models/assets');
 const lastSeenBlocksModel = require('../models/last_seen_blocks');
 const basketModel = require('../models/baskets');
-const seenTransactionModel = require('../models/seenTransaction');
+const seenTransactionModel = require('../models/seen_transaction');
 const { DUTCH_CONTRACT_ABI, PROXY_AUCTION_ABI } = require('../abi');
 const { AUCTION, BASKET_STATES } = require('../constants');
 const {

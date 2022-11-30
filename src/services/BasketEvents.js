@@ -1,7 +1,7 @@
 const Web3 = require('web3');
 const config = require('../config');
 const web3 = new Web3(config.NETWORK_CONFIG.WS_NETWORK_URL);
-const seenTransactionModel = require('../models/seenTransaction');
+const seenTransactionModel = require('../models/seen_transaction');
 const lastSeenBlocksModel = require('../models/last_seen_blocks');
 const {
   createBasketHelper,

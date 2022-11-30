@@ -4,8 +4,8 @@ const {
   ERC1155_NFT_CONTRACT_ABI,
 } = require('./src/abi');
 const { NETWORK_CONFIG } = require('./src/config');
-const last_seen_blocks = require('./src/models/last_seen_blocks');
-const nftContractModel = require('./src/models/NFT_contracts');
+const lastSeenBlocks = require('./src/models/last_seen_blocks');
+const nftContractModel = require('./src/models/nft_contracts');
 
 async function seedDbEntriesNFT() {
   const decentralandContractInstance = await nftContractModel.findOne({
@@ -13,7 +13,7 @@ async function seedDbEntriesNFT() {
   });
   if (!decentralandContractInstance) {
     const decentralandContract = new nftContractModel({
-      tokenContract: NETWORK_CONFIG.DECENTRALAND_NFT_CONTRACT_ADDRESS,
+      contractAddress: NETWORK_CONFIG.DECENTRALAND_NFT_CONTRACT_ADDRESS,
       name: 'Decentraland',
       template: {
         name: 'name',
@@ -35,7 +35,7 @@ async function seedDbEntriesNFT() {
   });
   if (!ensContractInstance) {
     const ensContract = new nftContractModel({
-      tokenContract: NETWORK_CONFIG.ENS_NFT_CONTRACT_ADDRESS,
+      contractAddress: NETWORK_CONFIG.ENS_NFT_CONTRACT_ADDRESS,
       name: 'ENS',
       template: {
         name: 'name',
@@ -57,7 +57,7 @@ async function seedDbEntriesNFT() {
   });
   if (!erc1155ContractInstance) {
     const erc1155Contract = new nftContractModel({
-      tokenContract: NETWORK_CONFIG.ERC1155_NFT_CONTRACT_ADDRESS,
+      contractAddress: NETWORK_CONFIG.ERC1155_NFT_CONTRACT_ADDRESS,
       name: 'ERC1155',
       template: {
         name: 'name',
@@ -76,9 +76,9 @@ async function seedDbEntriesNFT() {
 }
 
 async function seedDbEntriesLastSeenBlock() {
-  const lastSeenBlockInstance = await last_seen_blocks.findOne();
+  const lastSeenBlockInstance = await lastSeenBlocks.findOne();
   if (!lastSeenBlockInstance) {
-    const lastSeenBlock = new last_seen_blocks({
+    const lastSeenBlock = new lastSeenBlocks({
       blockNumberEnglish: NETWORK_CONFIG.START_BLOCK_ENGLISH,
       blockNumberDutch: NETWORK_CONFIG.START_BLOCK_DUTCH,
       blockNumberProxy: NETWORK_CONFIG.START_BLOCK_PROXY,

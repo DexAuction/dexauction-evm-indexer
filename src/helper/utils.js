@@ -15,7 +15,7 @@ const basketModel = require('../models/baskets');
 const auctionModel = require('../models/auctions');
 const collectionModel = require('../models/collections');
 const assetModel = require('../models/assets');
-const NFTContractsModel = require('../models/NFT_contracts');
+const NFTContractsModel = require('../models/nft_contracts');
 
 async function createAssetHelper(
   assetTokenId,
@@ -437,11 +437,11 @@ async function _changeOwnership(
     case SUPPORTED_TOKEN_STANDARDS.ERC1155: {
       // Create asset entry for newOwner with assetQuantity from auction
       const nftContract = await NFTContractsModel.findOne({
-        tokenContract: dbCollection.contractAddress,
+        contractAddress: dbCollection.contractAddress,
       });
       const nftContractInstance = new web3.eth.Contract(
         JSON.parse(nftContract.abi),
-        nftContract.tokenContract,
+        nftContract.contractAddress,
       );
       await createAssetHelper(
         dbAssetOldOwner.assetTokenId,
