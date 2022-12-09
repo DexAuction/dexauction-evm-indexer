@@ -46,4 +46,5 @@ const assetHistory = new mongoose.Schema({
   ],
 });
 
+assetHistory.set('versionKey', false);
 module.exports = mongoose.model('history_assets', assetHistory);

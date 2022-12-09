@@ -15,5 +15,6 @@ const lastSeenBlocks = new mongoose.Schema({
   },
 });
 lastSeenBlocks.set('timestamps', true);
+lastSeenBlocks.set('versionKey', false);
 
 module.exports = mongoose.model('last_seen_blocks', lastSeenBlocks);

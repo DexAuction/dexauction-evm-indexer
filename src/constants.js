@@ -21,6 +21,19 @@ const AUCTION = {
   ENGLISH: 'english',
 };
 
+const AUCTION_STATE = {
+  NotStarted: 'NOT-STARTED',
+  Ongoing: 'ONGOING',
+  SucceddfullyCompleted: 'SUCCESSFULLY-COMPLETED',
+  Cancelled: 'CANCELLED',
+  Expired: 'EXPIRED',
+};
+
+const INVENTORY_TYPE = {
+  asset: 'asset',
+  basket: 'basket',
+};
+
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
 
 const SUPPORTED_TOKEN_STANDARDS = {
@@ -40,6 +53,8 @@ module.exports = {
   ASSET_HISTORY_EVENTS,
   BASKET_STATES,
   AUCTION,
+  AUCTION_STATE,
+  INVENTORY_TYPE,
   ZERO_ADDRESS,
   SUPPORTED_TOKEN_STANDARDS,
   SUPPORTED_TOKEN_STANDARDS_ENUM,

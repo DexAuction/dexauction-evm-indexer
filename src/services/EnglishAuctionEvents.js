@@ -4,10 +4,16 @@ const web3 = new Web3(config.NETWORK_CONFIG.WS_NETWORK_URL);
 const auctionModel = require('../models/auctions');
 const lastSeenBlocksModel = require('../models/last_seen_blocks');
 const seenTransactionModel = require('../models/seen_transaction');
+const collectionsModel = require('../models/collections');
 const assetsModel = require('../models/assets');
 const basketModel = require('../models/baskets');
 const { ENGLISH_AUCTION_ABI, PROXY_AUCTION_ABI } = require('../abi');
-const { AUCTION, BASKET_STATES } = require('../constants');
+const {
+  AUCTION,
+  BASKET_STATES,
+  INVENTORY_TYPE,
+  AUCTION_STATE,
+} = require('../constants');
 const {
   listAssetHistoryHelper,
   changeOwnership,
@@ -766,52 +772,57 @@ async function _createAuction(
   endTime,
 ) {
   const getAuction = await auctionModel.findOne({
-    auctionId: auctionId,
+    _id: auctionId,
   });
 
   if (getAuction) {
-    console.log('Auction Id already exists');
+    console.log('Auction Id already exists: ');
+    console.log(getAuction);
     return;
   }
 
+  const dbCollection = await collectionsModel.findOne({
+    contractAddress: tokenContractAddress,
+  });
+
   const getAsset = await assetsModel.findOne({
-    assetContractAddress: tokenContractAddress,
-    assetTokenId: assetTokenId,
+    collectionId: dbCollection._id,
+    tokenId: assetTokenId,
     owner: auctionOwner,
   });
 
-  console.log('### Create English Auction ###');
-  const dbAuction = new auctionModel({
-    auctionId: auctionId,
-    assetId: getAsset.assetId,
-    fk_assetId: getAsset._id,
-    assetTokenId: assetTokenId,
-    assetQuantity: assetQuantity,
-    tokenContract: tokenContractAddress,
-    seller: auctionOwner,
-    state: 'NOT-STARTED',
-    auctionType: auctiontype,
-    englishAuctionAttribute: {
-      opening_price: 0,
-      min_increment: 0,
-      start_timestamp: startTime * 1000,
-      end_timestamp: endTime * 1000,
-      start_datetime: new Date(startTime * 1000),
-      end_datetime: new Date(endTime * 1000),
-      soft_close_duration: 0,
-      buyout_price: 0,
-      winning_bid: 0,
-    },
-  });
-  await dbAuction.save();
+  if (getAsset) {
+    console.log('### Create English Auction ###');
+    const dbAuction = new auctionModel({
+      _id: auctionId,
+      type: auctiontype,
+      seller: auctionOwner,
+      state: AUCTION_STATE.NotStarted,
+      englishAuctionAttribute: {
+        openingPrice: 0,
+        minIncrement: 0,
+        startTimestamp: startTime * 1000,
+        endTimestamp: endTime * 1000,
+        startDatetime: new Date(startTime * 1000),
+        endDatetime: new Date(endTime * 1000),
+        softCloseDuration: 0,
+        buyoutPrice: 0,
+        winningBid: 0,
+      },
+      inventoryType: INVENTORY_TYPE.asset,
+      inventoryId: getAsset._id,
+      assetQuantity: assetQuantity,
+    });
+    await dbAuction.save();
 
-  const seentx = new seenTransactionModel({
-    transactionHash: eventLog.transactionHash,
-    blockNumber: eventLog.blockNumber,
-    eventLog: eventLog,
-    state: 'APPLIED',
-  });
-  await seentx.save();
+    const seentx = new seenTransactionModel({
+      transactionHash: eventLog.transactionHash,
+      blockNumber: eventLog.blockNumber,
+      eventLog: eventLog,
+      state: 'APPLIED',
+    });
+    await seentx.save();
+  }
 }
 
 async function _createBasketAuction(
@@ -824,42 +835,42 @@ async function _createBasketAuction(
   endTime,
 ) {
   const getBasket = await basketModel.findOne({
-    basketId: basketId,
+    _id: basketId,
   });
 
   if (getBasket) {
     console.log(' ### Create English Basket Auction ### ');
 
     const dbAuction = new auctionModel({
-      auctionId: auctionId,
+      _id: auctionId,
+      type: auctionType,
       seller: auctionOwner,
-      state: 'NOT-STARTED',
-      auctionType: auctionType,
-      basketId: basketId,
-      fk_basketId: getBasket._id,
+      state: AUCTION_STATE.NotStarted,
       englishAuctionAttribute: {
-        opening_price: 0,
-        min_increment: 0,
-        start_timestamp: startTime * 1000,
-        end_timestamp: endTime * 1000,
-        start_datetime: new Date(startTime * 1000),
-        end_datetime: new Date(endTime * 1000),
-        soft_close_duration: 0,
-        buyout_price: 0,
-        winning_bid: 0,
+        openingPrice: 0,
+        minIncrement: 0,
+        startTimestamp: startTime * 1000,
+        endTimestamp: endTime * 1000,
+        startDatetime: new Date(startTime * 1000),
+        endDatetime: new Date(endTime * 1000),
+        softCloseDuration: 0,
+        buyoutPrice: 0,
+        winningBid: 0,
       },
+      inventoryType: INVENTORY_TYPE.basket,
+      inventoryId: getBasket._id,
     });
     await dbAuction.save();
-    await getBasket.update({ basketState: BASKET_STATES.LISTED });
-  }
+    await getBasket.updateOne({ basketState: BASKET_STATES.LISTED });
 
-  const seentx = new seenTransactionModel({
-    transactionHash: eventLog.transactionHash,
-    blockNumber: eventLog.blockNumber,
-    eventLog: eventLog,
-    state: 'APPLIED',
-  });
-  await seentx.save();
+    const seentx = new seenTransactionModel({
+      transactionHash: eventLog.transactionHash,
+      blockNumber: eventLog.blockNumber,
+      eventLog: eventLog,
+      state: 'APPLIED',
+    });
+    await seentx.save();
+  }
 }
 
 async function _configureAuction(
@@ -873,20 +884,20 @@ async function _configureAuction(
   buyOutPrice,
 ) {
   await auctionModel.updateOne(
-    { auctionId: auctionId },
+    { _id: auctionId },
     {
       englishAuctionAttribute: {
-        opening_price: openingPrice,
-        min_increment: minIncrement,
-        start_timestamp: startTimestamp * 1000,
-        end_timestamp: endTimestamp * 1000,
-        start_datetime: new Date(startTimestamp * 1000),
-        end_datetime: new Date(endTimestamp * 1000),
-        soft_close_duration: softCloseDuration,
-        buyout_price: buyOutPrice,
-        winning_bid: 0,
+        openingPrice: openingPrice,
+        minIncrement: minIncrement,
+        startTimestamp: startTimestamp * 1000,
+        endTimestamp: endTimestamp * 1000,
+        startDatetime: new Date(startTimestamp * 1000),
+        endDatetime: new Date(endTimestamp * 1000),
+        softCloseDuration: softCloseDuration,
+        buyoutPrice: buyOutPrice,
+        winningBid: 0,
       },
-      state: 'ONGOING',
+      state: AUCTION_STATE.Ongoing,
     },
   );
   await listAssetHistoryHelper(eventLog, auctionId, AUCTION.ENGLISH);
@@ -902,14 +913,14 @@ async function _configureAuction(
 
 async function _placeBid(eventLog, auctionId, bidder, bid) {
   await auctionModel.updateOne(
-    { auctionId: auctionId },
+    { _id: auctionId },
     {
       $push: {
         'englishAuctionAttribute.bids': [
           {
             address: bidder,
             bid: bid,
-            bid_timestamp: new Date().toISOString(),
+            bidTimestamp: new Date().toISOString(),
             txHash: eventLog.transactionHash,
           },
         ],
@@ -928,13 +939,13 @@ async function _placeBid(eventLog, auctionId, bidder, bid) {
 
 async function _auctionComplete(eventLog, auctionId, winningBid, winner) {
   await auctionModel.updateOne(
-    { auctionId: auctionId },
+    { _id: auctionId },
     {
       $set: {
-        'englishAuctionAttribute.winning_bid': winningBid,
+        'englishAuctionAttribute.winningBid': winningBid,
       },
       buyer: winner,
-      state: 'SUCCESSFULLY-COMPLETED',
+      state: AUCTION_STATE.SucceddfullyCompleted,
     },
   );
 
@@ -955,10 +966,10 @@ async function _auctionComplete(eventLog, auctionId, winningBid, winner) {
 
 async function _cancelAuction(eventLog, auctionId) {
   await auctionModel.updateOne(
-    { auctionId: auctionId },
+    { _id: auctionId },
     {
-      state: 'CANCELLED',
-      $set: { 'englishAuctionAttribute.winning_bid': 0 },
+      state: AUCTION_STATE.SucceddfullyCompleted,
+      $set: { 'englishAuctionAttribute.winningBid': 0 },
     },
   );
 

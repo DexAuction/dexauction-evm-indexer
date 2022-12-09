@@ -9,7 +9,7 @@ const nftContractModel = require('./src/models/nft_contracts');
 
 async function seedDbEntriesNFT() {
   const decentralandContractInstance = await nftContractModel.findOne({
-    tokenContract: NETWORK_CONFIG.DECENTRALAND_NFT_CONTRACT_ADDRESS,
+    contractAddress: NETWORK_CONFIG.DECENTRALAND_NFT_CONTRACT_ADDRESS,
   });
   if (!decentralandContractInstance) {
     const decentralandContract = new nftContractModel({
@@ -20,9 +20,9 @@ async function seedDbEntriesNFT() {
         description: 'description',
         image: 'image',
         attributes: 'attributes',
-        external_url: 'external_url',
-        background_image: null,
-        background_color: 'background_color',
+        externalUrl: 'external_url',
+        backgroundImage: null,
+        backgroundColor: 'background_color',
       },
       lastSeenBlock: 0,
       abi: JSON.stringify(DECENTRALAND_NFT_CONTRACT_ABI),
@@ -31,7 +31,7 @@ async function seedDbEntriesNFT() {
   }
 
   const ensContractInstance = await nftContractModel.findOne({
-    tokenContract: NETWORK_CONFIG.ENS_NFT_CONTRACT_ADDRESS,
+    contractAddress: NETWORK_CONFIG.ENS_NFT_CONTRACT_ADDRESS,
   });
   if (!ensContractInstance) {
     const ensContract = new nftContractModel({
@@ -42,9 +42,9 @@ async function seedDbEntriesNFT() {
         description: 'description',
         image: 'image',
         attributes: 'attributes',
-        external_url: 'url',
-        background_image: null,
-        background_color: 'background_color',
+        externalUrl: 'url',
+        backgroundImage: null,
+        backgroundColor: 'background_color',
       },
       lastSeenBlock: 0,
       abi: JSON.stringify(ENS_NFT_CONTRACT_ABI),
@@ -53,7 +53,7 @@ async function seedDbEntriesNFT() {
   }
 
   const erc1155ContractInstance = await nftContractModel.findOne({
-    tokenContract: NETWORK_CONFIG.ERC1155_NFT_CONTRACT_ADDRESS,
+    contractAddress: NETWORK_CONFIG.ERC1155_NFT_CONTRACT_ADDRESS,
   });
   if (!erc1155ContractInstance) {
     const erc1155Contract = new nftContractModel({
@@ -64,9 +64,9 @@ async function seedDbEntriesNFT() {
         description: 'description',
         image: 'image',
         attributes: 'properties',
-        external_url: 'external_url',
-        background_image: null,
-        background_color: 'background_color',
+        externalUrl: 'external_url',
+        backgroundImage: null,
+        backgroundColor: 'background_color',
       },
       lastSeenBlock: 0,
       abi: JSON.stringify(ERC1155_NFT_CONTRACT_ABI),

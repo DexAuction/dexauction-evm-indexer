@@ -2,12 +2,18 @@ const Web3 = require('web3');
 const config = require('../config');
 const web3 = new Web3(config.NETWORK_CONFIG.WS_NETWORK_URL);
 const auctionModel = require('../models/auctions');
+const collectionsModel = require('../models/collections');
 const assetsModel = require('../models/assets');
 const lastSeenBlocksModel = require('../models/last_seen_blocks');
 const basketModel = require('../models/baskets');
 const seenTransactionModel = require('../models/seen_transaction');
 const { DUTCH_CONTRACT_ABI, PROXY_AUCTION_ABI } = require('../abi');
-const { AUCTION, BASKET_STATES } = require('../constants');
+const {
+  AUCTION,
+  BASKET_STATES,
+  AUCTION_STATE,
+  INVENTORY_TYPE,
+} = require('../constants');
 const {
   listAssetHistoryHelper,
   transferAssetHistoryHelper,
@@ -656,51 +662,54 @@ async function _createAuction(
   startTime,
 ) {
   const getAuction = await auctionModel.findOne({
-    auctionId: auctionId,
+    _id: auctionId,
   });
 
   if (getAuction) {
     console.log('Auction Id already exists');
+    console.log(getAuction);
     return;
   }
+  const dbCollection = await collectionsModel.findOne({
+    contractAddress: tokenContractAddress,
+  });
 
-  console.log('### Create Dutch Auction ###');
   const getAsset = await assetsModel.findOne({
-    assetContractAddress: tokenContractAddress,
-    assetTokenId: assetTokenId,
+    collectionId: dbCollection._id,
+    tokenId: assetTokenId,
     owner: auctionOwner,
   });
+
   if (getAsset) {
+    console.log('### Create Dutch Auction ###');
     const dbAuction = new auctionModel({
-      auctionId: auctionId,
+      _id: auctionId,
+      type: auctionType,
       seller: auctionOwner,
-      state: 'NOT-STARTED',
-      auctionType: auctionType,
-      assetTokenId: assetTokenId,
-      assetQuantity: assetQuantity,
-      tokenContract: tokenContractAddress,
+      state: AUCTION_STATE.NotStarted,
       dutchAuctionAttribute: {
-        opening_price: 0,
-        round_duration: 0,
-        start_timestamp: startTime * 1000,
-        start_datetime: new Date(startTime * 1000),
-        reserve_price: 0,
-        drop_amount: 0,
-        winning_bid: 0,
+        openingPrice: 0,
+        roundDuration: 0,
+        startTimestamp: startTime * 1000,
+        startDatetime: new Date(startTime * 1000),
+        reservePrice: 0,
+        dropAmount: 0,
+        winningBid: 0,
       },
-      assetId: getAsset.assetId,
-      fk_assetId: getAsset._id,
+      inventoryType: INVENTORY_TYPE.asset,
+      inventoryId: getAsset._id,
+      assetQuantity: assetQuantity,
     });
     await dbAuction.save();
-  }
 
-  const seentx = new seenTransactionModel({
-    transactionHash: eventLog.transactionHash,
-    blockNumber: eventLog.blockNumber,
-    eventLog: eventLog,
-    state: 'APPLIED',
-  });
-  await seentx.save();
+    const seentx = new seenTransactionModel({
+      transactionHash: eventLog.transactionHash,
+      blockNumber: eventLog.blockNumber,
+      eventLog: eventLog,
+      state: 'APPLIED',
+    });
+    await seentx.save();
+  }
 }
 
 async function _createBasketAuction(
@@ -712,37 +721,38 @@ async function _createBasketAuction(
   startTime,
 ) {
   const getBasket = await basketModel.findOne({
-    basketId: basketId,
+    _id: basketId,
   });
   if (getBasket) {
     console.log(' ### Create Dutch Basket Auction ### ');
     const dbAuction = new auctionModel({
-      auctionId: auctionId,
+      _id: auctionId,
+      type: auctionType,
       seller: auctionOwner,
-      state: 'NOT-STARTED',
-      auctionType: auctionType,
-      basketId: basketId,
-      fk_basketId: getBasket._id,
+      state: AUCTION_STATE.NotStarted,
       dutchAuctionAttribute: {
-        opening_price: 0,
-        round_duration: 0,
-        start_timestamp: startTime * 1000,
-        start_datetime: new Date(startTime * 1000),
-        reserve_price: 0,
-        drop_amount: 0,
-        winning_bid: 0,
+        openingPrice: 0,
+        roundDuration: 0,
+        startTimestamp: startTime * 1000,
+        startDatetime: new Date(startTime * 1000),
+        reservePrice: 0,
+        dropAmount: 0,
+        winningBid: 0,
       },
+      inventoryType: INVENTORY_TYPE.basket,
+      inventoryId: getBasket._id,
     });
     await dbAuction.save();
-    await getBasket.update({ basketState: BASKET_STATES.LISTED });
+    await getBasket.updateOne({ basketState: BASKET_STATES.LISTED });
+
+    const seentx = new seenTransactionModel({
+      transactionHash: eventLog.transactionHash,
+      blockNumber: eventLog.blockNumber,
+      eventLog: eventLog,
+      state: 'APPLIED',
+    });
+    await seentx.save();
   }
-  const seentx = new seenTransactionModel({
-    transactionHash: eventLog.transactionHash,
-    blockNumber: eventLog.blockNumber,
-    eventLog: eventLog,
-    state: 'APPLIED',
-  });
-  await seentx.save();
 }
 
 async function _configureAuction(
@@ -755,18 +765,18 @@ async function _configureAuction(
   dropAmount,
 ) {
   await auctionModel.updateOne(
-    { auctionId: auctionId },
+    { _id: auctionId },
     {
       dutchAuctionAttribute: {
-        opening_price: openingPrice,
-        round_duration: roundDuration,
-        start_timestamp: startTimestamp * 1000,
-        start_datetime: new Date(startTimestamp * 1000),
-        reserve_price: reservePrice,
-        drop_amount: dropAmount,
-        winning_bid: 0,
+        openingPrice: openingPrice,
+        roundDuration: roundDuration,
+        startTimestamp: startTimestamp * 1000,
+        startDatetime: new Date(startTimestamp * 1000),
+        reservePrice: reservePrice,
+        dropAmount: dropAmount,
+        winningBid: 0,
       },
-      state: 'ONGOING',
+      state: AUCTION_STATE.Ongoing,
     },
   );
 
@@ -783,11 +793,11 @@ async function _configureAuction(
 
 async function _acceptPrice(eventLog, auctionId, winningBid, auctionWinner) {
   await auctionModel.updateMany(
-    { auctionId: auctionId },
+    { _id: auctionId },
     {
-      $set: { 'dutchAuctionAttribute.winning_bid': winningBid },
+      $set: { 'dutchAuctionAttribute.winningBid': winningBid },
       buyer: auctionWinner,
-      state: 'SUCCESSFULLY-COMPLETED',
+      state: AUCTION_STATE.SucceddfullyCompleted,
     },
   );
 
@@ -814,10 +824,10 @@ async function _acceptPrice(eventLog, auctionId, winningBid, auctionWinner) {
 
 async function _cancelAuction(eventLog, auctionId) {
   await auctionModel.updateOne(
-    { auctionId: auctionId },
+    { _id: auctionId },
     {
-      $set: { 'dutchAuctionAttribute.winning_bid': 0 },
-      state: 'CANCELLED',
+      $set: { 'dutchAuctionAttribute.winningBid': 0 },
+      state: AUCTION_STATE.Cancelled,
     },
   );
 

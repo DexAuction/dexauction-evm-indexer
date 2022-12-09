@@ -20,5 +20,5 @@ const seenTransaction = new mongoose.Schema({
   },
 });
 seenTransaction.set('timestamps', true);
-
+seenTransaction.set('versionKey', false);
 module.exports = mongoose.model('seen_transaction', seenTransaction);

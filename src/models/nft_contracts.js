@@ -25,5 +25,5 @@ const NFTContracts = new mongoose.Schema({
     required: true,
   },
 });
-
+NFTContracts.set('versionKey', false);
 module.exports = mongoose.model('nft_contracts', NFTContracts);

@@ -6,6 +6,7 @@ const {
   SUPPORTED_TOKEN_STANDARDS,
   SUPPORTED_TOKEN_STANDARDS_ENUM,
   BASKET_STATES,
+  INVENTORY_TYPE,
 } = require('../constants');
 const Web3 = require('web3');
 const config = require('../config');
@@ -22,7 +23,6 @@ async function createAssetHelper(
   assetQuantity,
   assetOwner,
   assetMintedBy,
-  NFTContract,
   NFTContractInstance,
   dbCollection,
 ) {
@@ -30,17 +30,14 @@ async function createAssetHelper(
     console.log('##### Create Asset #######');
 
     const assetEntry = {
-      assetContractAddress: dbCollection.contractAddress,
-      assetTokenId: assetTokenId,
-      assetQuantity: assetQuantity,
-      status: DEFAULT_ASSET_STATUS,
+      owner: assetOwner,
       mintedBy: assetMintedBy,
       metadataURL: '',
       metadataJSON: null,
-      owner: assetOwner,
-      NFTCollection: NFTContract.name,
-      collectionId: dbCollection.collectionId,
-      fk_collectionId: dbCollection._id,
+      tokenId: assetTokenId,
+      quantity: assetQuantity,
+      saleStatus: DEFAULT_ASSET_STATUS,
+      collectionId: dbCollection._id,
     };
 
     let getTokenURI;
@@ -57,24 +54,24 @@ async function createAssetHelper(
 
       // ERC1155
       case SUPPORTED_TOKEN_STANDARDS.ERC1155: {
-        // (contractAddr, tokenId, owner) will identify unique asset
+        // (collection, tokenId, owner) will identify unique asset
         const dbAssetExist = await assetModel.findOne({
-          assetContractAddress: dbCollection.contractAddress,
-          assetTokenId: assetTokenId,
+          collectionId: dbCollection._id,
+          tokenId: assetTokenId,
           owner: assetOwner,
         });
 
         // If same asset already exists for owner just update the quantity
         if (dbAssetExist) {
           const updatedQuantity =
-            parseInt(dbAssetExist.assetQuantity) + parseInt(assetQuantity);
-          await dbAssetExist.update({ assetQuantity: updatedQuantity });
+            parseInt(dbAssetExist.quantity) + parseInt(assetQuantity);
+          await dbAssetExist.updateOne({ quantity: updatedQuantity });
 
           console.log(
-            `Updated Asset(assetId: ${dbAssetExist.assetId})`,
+            `Updated Asset(assetId: ${dbAssetExist._id})`,
             `with updatedQuantity: ${updatedQuantity}`,
           );
-          return dbAssetExist.assetId;
+          return dbAssetExist;
         }
 
         // Get Token URI by calling Smart Contract function
@@ -90,27 +87,25 @@ async function createAssetHelper(
     // Get and update MetadataJSON if TokenURI is present
     if (getTokenURI) {
       assetEntry['metadataURL'] = getTokenURI;
-      const resp = await axios.get(getTokenURI);
-      if (resp.data) {
+      let resp;
+      try {
+        resp = await axios.get(getTokenURI);
+      } catch (err) {
+        console.error('Axios Error: ', err.message);
+      }
+
+      if (resp && resp.data) {
         assetEntry['metadataJSON'] = resp.data;
-        for (let [key, value] of Object.entries(NFTContract.template)) {
-          if (value) {
-            assetEntry[key] = resp.data[value];
-          }
-        }
       }
     }
 
-    assetEntry['assetId'] = (await assetModel.countDocuments()) + 1;
+    assetEntry['_id'] = (await assetModel.countDocuments()) + 1;
     const dbAsset = new assetModel(assetEntry);
     await dbAsset.save();
 
-    console.log(`Created new Asset(assetId: ${dbAsset.assetId})`);
+    console.log(`Created new Asset(assetId: ${dbAsset._id})`);
 
-    // Make empty entry in asset history table
-    await emptyAssetHistoryHelper(dbAsset.assetId);
-
-    return dbAsset.assetId;
+    return dbAsset;
   } catch (err) {
     console.error(err);
   }
@@ -126,7 +121,7 @@ async function createBasketHelper(
 ) {
   try {
     const getBasket = await basketModel.findOne({
-      basketId: basketId,
+      _id: basketId,
     });
 
     if (getBasket) {
@@ -134,45 +129,36 @@ async function createBasketHelper(
       return;
     }
 
-    let collectionIds = [];
-    let fk_collectionIds = [];
     let assetIds = [];
-    let fk_assetsIds = [];
     for (let i = 0; i < nftContracts.length; i++) {
       const getCollection = await collectionModel.findOne({
         contractAddress: nftContracts[i],
       });
-      collectionIds.push(getCollection.collectionId);
-      fk_collectionIds.push(getCollection._id);
 
       let dbAssetQuery = {
-        assetContractAddress: nftContracts[i],
-        assetTokenId: tokenIds[i],
+        collectionId: getCollection._id,
+        tokenId: tokenIds[i],
       };
       // To indentify unique ERC1155 asset we need (contract,tokenId,Owner)
       if (tokenStandards[i] === SUPPORTED_TOKEN_STANDARDS_ENUM.ERC1155) {
         dbAssetQuery['owner'] = basketOwner;
       }
       const dbAsset = await assetModel.findOne(dbAssetQuery);
-      assetIds.push(dbAsset.assetId);
-      fk_assetsIds.push(dbAsset._id);
+      assetIds.push(dbAsset._id);
     }
 
     const basketEntry = {
-      basketId: basketId,
-      basketOwner: basketOwner,
-      basketState: BASKET_STATES.CREATED,
-      contractAddresses: nftContracts,
-      assetTokenIds: tokenIds,
+      _id: basketId,
+      owner: basketOwner,
+      createdBy: basketOwner,
+      state: BASKET_STATES.CREATED,
       quantities: quantities,
-      collectionIds: collectionIds,
-      fk_collectionIds: fk_collectionIds,
       assetIds: assetIds,
-      fk_assetIds: fk_assetsIds,
     };
     const dbBasket = new basketModel(basketEntry);
     await dbBasket.save();
-    console.log(`Created new Basket(basketId: ${dbBasket.basketId})`);
+    console.log(`Created new Basket(basketId: ${dbBasket._id})`);
+    return dbBasket;
   } catch (err) {
     console.error(err);
   }
@@ -181,42 +167,26 @@ async function createBasketHelper(
 async function destoryBasketHelper(basketId) {
   console.log(`## Destory Basket(basketId: ${basketId}) ##`);
   await basketModel.updateOne(
-    { basketId: basketId },
-    { basketState: BASKET_STATES.DESTROYED },
+    { _id: basketId },
+    { state: BASKET_STATES.DESTROYED },
   );
 }
 
-async function emptyAssetHistoryHelper(assetId) {
-  const dbAsset = await assetModel.findOne({ assetId: assetId });
-
-  const history = {
-    assetId: dbAsset.assetId,
-    history: [],
-  };
-  console.log(`Empty asset history initialized for Asset(assetId: ${assetId})`);
-  const dbAssetHistory = new assetHistoryModel(history);
-  await dbAssetHistory.save();
-}
-
-async function mintAssetHistoryHelper(eventLog, assetId, mintQuantity) {
-  const dbAsset = await assetModel.findOne({ assetId: assetId });
-
+async function mintAssetHistoryHelper(eventLog, dbAsset, mintQuantity) {
   const assetHistoryParams = {
-    eventAt: dbAsset.createdAt,
+    eventAt: dbAsset.updatedAt,
     to: dbAsset.owner,
-    assetQuantity: mintQuantity,
+    quantity: mintQuantity,
     actions: config.POLYGON_EXPLORER + '/' + eventLog.transactionHash,
   };
   await assetHistoryDbHelper(
-    assetId,
+    dbAsset._id,
     ASSET_HISTORY_EVENTS.MINT,
     assetHistoryParams,
   );
 }
 
-async function basketCreateAssetHistoryHelper(eventLog, basketId) {
-  const dbBasket = await basketModel.findOne({ basketId: basketId });
-
+async function basketCreateAssetHistoryHelper(eventLog, dbBasket) {
   for (let i = 0; i < dbBasket.assetIds.length; i++) {
     await basketCreateAssetHistoryDbHelper(
       eventLog,
@@ -228,7 +198,12 @@ async function basketCreateAssetHistoryHelper(eventLog, basketId) {
 }
 
 async function basketDestroyAssetHistoryHelper(eventLog, basketId) {
-  const dbBasket = await basketModel.findOne({ basketId: basketId });
+  const dbBasket = await basketModel.findOne({ _id: basketId });
+  if (!dbBasket) {
+    console.log(
+      `Can't find Basket(id: ${basketId}) in basketDestroyAssetHistoryHelper`,
+    );
+  }
 
   for (let i = 0; i < dbBasket.assetIds.length; i++) {
     await basketDestroyAssetHistoryDbHelper(
@@ -241,28 +216,34 @@ async function basketDestroyAssetHistoryHelper(eventLog, basketId) {
 }
 
 async function listAssetHistoryHelper(eventLog, auctionId, auctionType) {
-  const dbAuction = await auctionModel.findOne({ auctionId: auctionId });
+  const dbAuction = await auctionModel.findOne({ _id: auctionId });
+  if (!dbAuction) {
+    console.log(
+      `Can't find Auction(id: ${auctionId}) in listAssetHistoryHelper`,
+    );
+  }
+
   let priceVal;
   if (auctionType === AUCTION.DUTCH) {
-    priceVal = dbAuction.dutchAuctionAttribute.opening_price;
+    priceVal = dbAuction.dutchAuctionAttribute.openingPrice;
   } else if (auctionType === AUCTION.ENGLISH) {
-    priceVal = dbAuction.englishAuctionAttribute.opening_price;
+    priceVal = dbAuction.englishAuctionAttribute.openingPrice;
   }
 
   // NFT Auction
-  if (dbAuction.assetId) {
-    const dbAsset = await assetModel.findById(dbAuction.fk_assetId);
+  if (dbAuction.inventoryType === INVENTORY_TYPE.asset) {
+    const dbAsset = await assetModel.findOne({ _id: dbAuction.inventoryId });
     await listAssetHistoryDbHelper(
       eventLog,
       dbAuction,
-      dbAsset.assetId,
+      dbAsset._id,
       dbAuction.assetQuantity,
       priceVal,
     );
 
     // Basket Auction
-  } else if (dbAuction.basketId) {
-    const dbBasket = await basketModel.findById(dbAuction.fk_basketId);
+  } else if (dbAuction.inventoryType === INVENTORY_TYPE.basket) {
+    const dbBasket = await basketModel.findOne({ _id: dbAuction.inventoryId });
 
     for (let i = 0; i < dbBasket.assetIds.length; i++) {
       await listAssetHistoryDbHelper(
@@ -282,40 +263,46 @@ async function transferAssetHistoryHelper(
   winningBid,
   winner,
 ) {
-  const dbAuction = await auctionModel.findOne({ auctionId: auctionId });
+  const dbAuction = await auctionModel.findOne({ _id: auctionId });
+  if (!dbAuction) {
+    console.log(
+      `Can't find Auction(id: ${auctionId}) in transferAssetHistoryHelper`,
+    );
+  }
 
   // NFT Auction
-  if (dbAuction.assetId) {
-    const dbAsset = await assetModel.findById(dbAuction.fk_assetId);
-    const dbCollection = await collectionModel.findById(
-      dbAsset.fk_collectionId,
-    );
+  if (dbAuction.inventoryType === INVENTORY_TYPE.asset) {
+    const dbAsset = await assetModel.findOne({ _id: dbAuction.inventoryId });
+    const dbCollection = await collectionModel.findOne({
+      _id: dbAsset.collectionId,
+    });
     await _transferAssetHistoryHelper(
       eventLog,
       dbAuction,
       dbCollection,
-      dbAsset.assetId,
-      dbAsset.assetTokenId,
+      dbAsset._id,
+      dbAsset.tokenId,
       dbAuction.assetQuantity,
       winningBid,
       winner,
     );
 
     // Basket Auction
-  } else if (dbAuction.basketId) {
-    const dbBasket = await basketModel.findById(dbAuction.fk_basketId);
+  } else if (dbAuction.inventoryType === INVENTORY_TYPE.basket) {
+    const dbBasket = await basketModel.findOne({ _id: dbAuction.inventoryId });
 
     for (let i = 0; i < dbBasket.assetIds.length; i++) {
-      const dbCollection = await collectionModel.findById(
-        dbBasket.fk_collectionIds[i],
-      );
+      const dbAsset = await assetModel.findOne({ _id: dbBasket.assetIds[i] });
+      const dbCollection = await collectionModel.findOne({
+        _id: dbAsset.collectionId,
+      });
 
       await _transferAssetHistoryHelper(
         eventLog,
         dbAuction,
         dbCollection,
         dbBasket.assetIds[i],
-        dbBasket.assetTokenIds[i],
+        dbAsset.tokenId,
         dbBasket.quantities[i],
         winningBid,
         winner,
@@ -325,29 +312,36 @@ async function transferAssetHistoryHelper(
 }
 
 async function cancelListAssetHistoryHelper(eventLog, auctionId, auctionType) {
-  const dbAuction = await auctionModel.findOne({ auctionId: auctionId });
+  const dbAuction = await auctionModel.findOne({ _id: auctionId });
+  if (!dbAuction) {
+    console.log(
+      `Can't find Auction(id: ${auctionId}) in cancelListAssetHistoryHelper`,
+    );
+  }
+
   let priceVal;
   if (auctionType === AUCTION.DUTCH) {
-    priceVal = dbAuction.dutchAuctionAttribute.opening_price;
+    priceVal = dbAuction.dutchAuctionAttribute.openingPrice;
   } else if (auctionType === AUCTION.ENGLISH) {
-    priceVal = dbAuction.englishAuctionAttribute.opening_price;
+    priceVal = dbAuction.englishAuctionAttribute.openingPrice;
   }
 
   // NFT Auction
-  if (dbAuction.assetId) {
-    const dbAsset = await assetModel.findById(dbAuction.fk_assetId);
+  if (dbAuction.inventoryType === INVENTORY_TYPE.asset) {
+    const dbAsset = await assetModel.findOne({ _id: dbAuction.inventoryId });
 
     await cancelListAssetHistoryDbHelper(
       eventLog,
       dbAuction,
-      dbAsset.assetId,
+      dbAsset._id,
       dbAuction.assetQuantity,
       priceVal,
     );
 
     // Basket Auction
-  } else if (dbAuction.basketId) {
-    const dbBasket = await basketModel.findById(dbAuction.fk_basketId);
+  } else if (dbAuction.inventoryType === INVENTORY_TYPE.basket) {
+    const dbBasket = await basketModel.findOne({ _id: dbAuction.inventoryId });
+
     for (let i = 0; i < dbBasket.assetIds.length; i++) {
       await cancelListAssetHistoryDbHelper(
         eventLog,
@@ -362,15 +356,20 @@ async function cancelListAssetHistoryHelper(eventLog, auctionId, auctionType) {
 
 async function changeOwnership(auctionId, newOwner) {
   console.log('##### Change Asset Ownership #######');
-  const dbAuction = await auctionModel.findOne({ auctionId: auctionId });
+  const dbAuction = await auctionModel.findOne({ _id: auctionId });
+  if (!dbAuction) {
+    console.log(`Can't find Auction(id: ${auctionId}) in changeOwnership`);
+  }
 
   // NFT Auction
-  if (dbAuction.assetId) {
-    const dbAssetOldOwner = await assetModel.findById(dbAuction.fk_assetId);
+  if (dbAuction.inventoryType === INVENTORY_TYPE.asset) {
+    const dbAssetOldOwner = await assetModel.findOne({
+      _id: dbAuction.inventoryId,
+    });
     if (dbAssetOldOwner) {
-      const dbCollection = await collectionModel.findById(
-        dbAssetOldOwner.fk_collectionId,
-      );
+      const dbCollection = await collectionModel.findOne({
+        _id: dbAssetOldOwner.collectionId,
+      });
 
       await _changeOwnership(
         dbAssetOldOwner,
@@ -381,31 +380,30 @@ async function changeOwnership(auctionId, newOwner) {
     }
 
     // Basket Auction
-  } else if (dbAuction.basketId) {
-    const dbBasket = await basketModel.findById(dbAuction.fk_basketId);
-    await dbBasket.update({
-      basketOwner: newOwner,
-      basketState: BASKET_STATES.DESTROYED,
+  } else if (dbAuction.inventoryType === INVENTORY_TYPE.basket) {
+    const dbBasket = await basketModel.findOne({ _id: dbAuction.inventoryId });
+    await dbBasket.updateOne({
+      owner: newOwner,
+      state: BASKET_STATES.DESTROYED,
     });
     console.log(
-      `changed basket ownership of Basket(basketId: ${dbBasket.basketId})`,
+      `changed basket ownership of Basket(basketId: ${dbBasket._id})`,
       `to newOwner: ${newOwner}`,
     );
 
     for (let i = 0; i < dbBasket.assetIds.length; i++) {
-      const dbAssetOldOwner = await assetModel.findById(
-        dbBasket.fk_assetIds[i],
-      );
-      const dbCollection = await collectionModel.findById(
-        dbBasket.fk_collectionIds[i],
-      );
-      const auctionAssetQuantity = dbBasket.quantities[i];
+      const dbAssetOldOwner = await assetModel.findOne({
+        _id: dbBasket.assetIds[i],
+      });
+      const dbCollection = await collectionModel.findOne({
+        _id: dbAssetOldOwner.collectionId,
+      });
 
       await _changeOwnership(
         dbAssetOldOwner,
         dbCollection,
         newOwner,
-        auctionAssetQuantity,
+        dbBasket.quantities[i],
       );
     }
   }
@@ -421,13 +419,13 @@ async function _changeOwnership(
     // ERC721
     case SUPPORTED_TOKEN_STANDARDS.ERC721: {
       await assetModel.updateOne(
-        { assetId: dbAssetOldOwner.assetId },
+        { _id: dbAssetOldOwner._id },
         { owner: newOwner },
       );
 
       console.log(
         `changed ERC721 ownership`,
-        `of Asset(assetId: ${dbAssetOldOwner.assetId})`,
+        `of Asset(assetId: ${dbAssetOldOwner._id})`,
         `to newOwner: ${newOwner}`,
       );
       break;
@@ -444,27 +442,25 @@ async function _changeOwnership(
         nftContract.contractAddress,
       );
       await createAssetHelper(
-        dbAssetOldOwner.assetTokenId,
+        dbAssetOldOwner.tokenId,
         auctionAssetQuantity,
         newOwner,
         dbAssetOldOwner.mintedBy,
-        nftContract,
         nftContractInstance,
         dbCollection,
       );
 
       // Decrease assetQuantity in oldOwner
       const updatedAssetQuantityOldOwner =
-        parseInt(dbAssetOldOwner.assetQuantity) -
-        parseInt(auctionAssetQuantity);
+        parseInt(dbAssetOldOwner.quantity) - parseInt(auctionAssetQuantity);
 
       await assetModel.updateOne(
-        { assetId: dbAssetOldOwner.assetId },
-        { assetQuantity: updatedAssetQuantityOldOwner },
+        { _id: dbAssetOldOwner._id },
+        { quantity: updatedAssetQuantityOldOwner },
       );
 
       console.log(
-        `Updated Old Owner Asset(assetId: ${dbAssetOldOwner.assetId})`,
+        `Updated Old Owner Asset(assetId: ${dbAssetOldOwner._id})`,
         `with updatedQuantity: ${updatedAssetQuantityOldOwner}`,
       );
       break;
@@ -512,14 +508,14 @@ async function _transferAssetHistoryHelper(
 
       // Make entry on winner's asset history
       const dbAssetNewOwner = await assetModel.findOne({
-        assetContractAddress: dbCollection.contractAddress,
-        assetTokenId: assetTokenId,
+        collectionId: dbCollection._id,
+        tokenId: assetTokenId,
         owner: winner,
       });
       await transferAssetHistoryDbHelper(
         eventLog,
         dbAuction,
-        dbAssetNewOwner.assetId,
+        dbAssetNewOwner._id,
         transferAssetQuantity,
         winningBid,
         winner,
@@ -540,8 +536,8 @@ async function basketCreateAssetHistoryDbHelper(
   const assetHistoryParams = {
     eventAt: dbBasket.updatedAt,
     to: dbBasket.basketOwner,
-    assetQuantity: assetQuantity,
-    basketId: dbBasket.basketId,
+    quantity: assetQuantity,
+    basketId: dbBasket._id,
     actions: config.POLYGON_EXPLORER + '/' + eventLog.transactionHash,
   };
 
@@ -561,8 +557,8 @@ async function basketDestroyAssetHistoryDbHelper(
   const assetHistoryParams = {
     eventAt: dbBasket.updatedAt,
     to: dbBasket.basketOwner,
-    assetQuantity: assetQuantity,
-    basketId: dbBasket.basketId,
+    quantity: assetQuantity,
+    basketId: dbBasket._id,
     actions: config.POLYGON_EXPLORER + '/' + eventLog.transactionHash,
   };
 
@@ -586,7 +582,7 @@ async function transferAssetHistoryDbHelper(
     price: winningBid,
     from: dbAuction.seller,
     to: winner,
-    assetQuantity: assetQuantity,
+    quantity: assetQuantity,
     actions: config.POLYGON_EXPLORER + '/' + eventLog.transactionHash,
   };
 
@@ -608,7 +604,7 @@ async function listAssetHistoryDbHelper(
     eventAt: dbAuction.updatedAt,
     price: price,
     from: dbAuction.seller,
-    assetQuantity: assetQuantity,
+    quantity: assetQuantity,
     actions: config.POLYGON_EXPLORER + '/' + eventLog.transactionHash,
   };
 
@@ -630,7 +626,7 @@ async function cancelListAssetHistoryDbHelper(
     eventAt: dbAuction.updatedAt,
     price: price,
     from: dbAuction.seller,
-    assetQuantity: assetQuantity,
+    quantity: assetQuantity,
     actions: config.POLYGON_EXPLORER + '/' + eventLog.transactionHash,
   };
 
@@ -651,7 +647,7 @@ async function assetHistoryDbHelper(
   });
 
   if (dbAssetHistory) {
-    await dbAssetHistory.update({
+    await dbAssetHistory.updateOne({
       $push: {
         history: [
           {
@@ -661,14 +657,25 @@ async function assetHistoryDbHelper(
         ],
       },
     });
-    console.log(
-      `### Event(${assetHistoryType}) added to asset history of`,
-      `Asset(assetId: ${assetId})###`,
-    );
+    await dbAssetHistory.save();
   } else {
-    console.log('Can not find asset history entry with assetId: ', assetId);
+    const history = {
+      assetId: assetId,
+      history: [
+        {
+          event: assetHistoryType,
+          ...assetHistoryParams,
+        },
+      ],
+    };
+    const dbAssetHistoryNew = new assetHistoryModel(history);
+    await dbAssetHistoryNew.save();
   }
-  await dbAssetHistory.save();
+
+  console.log(
+    `### Event(${assetHistoryType}) added to asset history of`,
+    `Asset(assetId: ${assetId})###`,
+  );
 }
 
 module.exports = {

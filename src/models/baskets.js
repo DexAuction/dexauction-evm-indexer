@@ -4,8 +4,6 @@ const { BASKET_STATES } = require('../constants');
 const basket = new mongoose.Schema({
   _id: {
     type: Number,
-    unique: true,
-    required: true,
   },
 
   name: {
@@ -13,6 +11,11 @@ const basket = new mongoose.Schema({
   },
 
   owner: {
+    type: String,
+    required: true,
+  },
+
+  createdBy: {
     type: String,
     required: true,
   },
@@ -36,11 +39,7 @@ const basket = new mongoose.Schema({
     type: [Number],
     required: true,
   },
-
-  createdBy: {
-    type: String,
-    required: true,
-  },
 });
 basket.set('timestamps', true);
+basket.set('versionKey', false);
 module.exports = mongoose.model('baskets', basket);

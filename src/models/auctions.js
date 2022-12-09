@@ -3,8 +3,6 @@ const mongoose = require('mongoose');
 const auction = new mongoose.Schema({
   _id: {
     type: Number,
-    unique: true,
-    required: true,
   },
   type: {
     type: String,
@@ -118,5 +116,6 @@ const auction = new mongoose.Schema({
 });
 
 auction.set('timestamps', true);
+auction.set('versionKey', false);
 
 module.exports = mongoose.model('auctions', auction);

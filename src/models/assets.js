@@ -4,8 +4,6 @@ const { DEFAULT_ASSET_STATUS, ON_SALE_ASSET_STATUS } = require('../constants');
 const asset = new mongoose.Schema({
   _id: {
     type: Number,
-    unique: true,
-    required: true,
   },
   owner: {
     type: String,
@@ -46,4 +44,5 @@ const asset = new mongoose.Schema({
   },
 });
 asset.set('timestamps', true);
+asset.set('versionKey', false);
 module.exports = mongoose.model('assets', asset);

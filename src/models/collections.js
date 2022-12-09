@@ -3,8 +3,6 @@ const mongoose = require('mongoose');
 const collection = new mongoose.Schema({
   _id: {
     type: Number,
-    unique: true,
-    required: true,
   },
   tokenStandard: {
     type: String,
@@ -48,4 +46,5 @@ const collection = new mongoose.Schema({
     required: true,
   },
 });
+collection.set('versionKey', false);
 module.exports = mongoose.model('collections', collection);

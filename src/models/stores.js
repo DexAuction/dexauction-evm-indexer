@@ -3,8 +3,6 @@ const mongoose = require('mongoose');
 const store = new mongoose.Schema({
   _id: {
     type: Number,
-    unique: true,
-    required: true,
   },
   name: {
     type: String,
@@ -35,4 +33,5 @@ const store = new mongoose.Schema({
 });
 
 store.set('timestamps', true);
+store.set('versionKey', false);
 module.exports = mongoose.model('stores', store);
