@@ -8,10 +8,7 @@ const {
   createAssetHelper,
   mintAssetHistoryHelper,
 } = require('../helper/utils');
-const {
-  DECENTRALAND_NFT_CONTRACT_ABI,
-  ERC1155_NFT_CONTRACT_ABI,
-} = require('../abi');
+const { ERC721_NFT_CONTRACT_ABI, ERC1155_NFT_CONTRACT_ABI } = require('../abi');
 const { ZERO_ADDRESS } = require('../constants');
 
 const NftTransferEventSubscription = async function () {
@@ -22,8 +19,7 @@ const NftTransferEventSubscription = async function () {
     'logs',
     {
       address: [
-        config.NETWORK_CONFIG.DECENTRALAND_NFT_CONTRACT_ADDRESS.toLowerCase(),
-        config.NETWORK_CONFIG.ENS_NFT_CONTRACT_ADDRESS.toLowerCase(),
+        config.NETWORK_CONFIG.MYNEERC721_NFT_CONTRACT_ADDRESS.toLowerCase(),
       ],
     },
     async function (err, result) {
@@ -46,10 +42,10 @@ const NftTransferEventSubscription = async function () {
         }
 
         console.log(
-          `decoding ERC721 ${DECENTRALAND_NFT_CONTRACT_ABI[3]['name']} eventLogs in NFTEvents`,
+          `decoding ERC721 ${ERC721_NFT_CONTRACT_ABI[3]['name']} eventLogs in NFTEvents`,
         );
         const decodedData = web3.eth.abi.decodeLog(
-          DECENTRALAND_NFT_CONTRACT_ABI[3]['inputs'],
+          ERC721_NFT_CONTRACT_ABI[3]['inputs'],
           result.data,
           result.topics.slice(1),
         );
@@ -87,7 +83,8 @@ const ERC1155NftTransferEventSubscription = async function () {
   await web3.eth.subscribe(
     'logs',
     {
-      address: config.NETWORK_CONFIG.ERC1155_NFT_CONTRACT_ADDRESS.toLowerCase(),
+      address:
+        config.NETWORK_CONFIG.MYNEERC1155_NFT_CONTRACT_ADDRESS.toLowerCase(),
     },
     async function (err, result) {
       const nftContract = await NFTContractsModel.findOne({
