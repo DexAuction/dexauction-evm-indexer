@@ -968,7 +968,7 @@ async function _cancelAuction(eventLog, auctionId) {
   await auctionModel.updateOne(
     { _id: auctionId },
     {
-      state: AUCTION_STATE.SucceddfullyCompleted,
+      state: AUCTION_STATE.Cancelled,
       $set: { 'englishAuctionAttribute.winningBid': 0 },
     },
   );
