@@ -16,6 +16,8 @@ const assetHistory = new mongoose.Schema({
           ASSET_HISTORY_EVENTS.TRANSFER,
           ASSET_HISTORY_EVENTS.CANCEL_LIST,
           ASSET_HISTORY_EVENTS.BASKET_CREATE,
+          ASSET_HISTORY_EVENTS.BASKET_LIST,
+          ASSET_HISTORY_EVENTS.BASKET_CANCEL_LIST,
           ASSET_HISTORY_EVENTS.BASKET_DESTROY,
         ],
         required: true,

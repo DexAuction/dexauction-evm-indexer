@@ -11,7 +11,7 @@ async function seedDbEntriesNFT() {
     contractAddress: NETWORK_CONFIG.MYNEERC721_NFT_CONTRACT_ADDRESS,
   });
   if (!erc721ContractInstance) {
-    const decentralandContract = new nftContractModel({
+    const erc721Contract = new nftContractModel({
       contractAddress: NETWORK_CONFIG.MYNEERC721_NFT_CONTRACT_ADDRESS,
       name: 'MYNE ERC721',
       template: {

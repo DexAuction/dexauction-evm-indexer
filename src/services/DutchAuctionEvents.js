@@ -666,10 +666,10 @@ async function _createAuction(
   });
 
   if (getAuction) {
-    console.log('Auction Id already exists');
-    console.log(getAuction);
+    console.log(`Auction Id already exists for auctionId: ${auctionId} `);
     return;
   }
+
   const dbCollection = await collectionsModel.findOne({
     contractAddress: tokenContractAddress,
   });
@@ -686,7 +686,7 @@ async function _createAuction(
       _id: auctionId,
       type: auctionType,
       seller: auctionOwner,
-      state: AUCTION_STATE.NotStarted,
+      state: AUCTION_STATE.NOT_STARTED,
       dutchAuctionAttribute: {
         openingPrice: 0,
         roundDuration: 0,
@@ -696,7 +696,7 @@ async function _createAuction(
         dropAmount: 0,
         winningBid: 0,
       },
-      inventoryType: INVENTORY_TYPE.asset,
+      inventoryType: INVENTORY_TYPE.ASSET,
       inventoryId: getAsset._id,
       assetQuantity: assetQuantity,
     });
@@ -729,7 +729,7 @@ async function _createBasketAuction(
       _id: auctionId,
       type: auctionType,
       seller: auctionOwner,
-      state: AUCTION_STATE.NotStarted,
+      state: AUCTION_STATE.NOT_STARTED,
       dutchAuctionAttribute: {
         openingPrice: 0,
         roundDuration: 0,
@@ -739,11 +739,11 @@ async function _createBasketAuction(
         dropAmount: 0,
         winningBid: 0,
       },
-      inventoryType: INVENTORY_TYPE.basket,
+      inventoryType: INVENTORY_TYPE.BASKET,
       inventoryId: getBasket._id,
     });
     await dbAuction.save();
-    await getBasket.updateOne({ basketState: BASKET_STATES.LISTED });
+    await getBasket.updateOne({ basketState: BASKET_STATES.ON_SALE });
 
     const seentx = new seenTransactionModel({
       transactionHash: eventLog.transactionHash,
@@ -776,7 +776,7 @@ async function _configureAuction(
         dropAmount: dropAmount,
         winningBid: 0,
       },
-      state: AUCTION_STATE.Ongoing,
+      state: AUCTION_STATE.ONGOING,
     },
   );
 
@@ -797,7 +797,7 @@ async function _acceptPrice(eventLog, auctionId, winningBid, auctionWinner) {
     {
       $set: { 'dutchAuctionAttribute.winningBid': winningBid },
       buyer: auctionWinner,
-      state: AUCTION_STATE.SucceddfullyCompleted,
+      state: AUCTION_STATE.SUCCESSFULLY_COMPLETED,
     },
   );
 
@@ -827,7 +827,7 @@ async function _cancelAuction(eventLog, auctionId) {
     { _id: auctionId },
     {
       $set: { 'dutchAuctionAttribute.winningBid': 0 },
-      state: AUCTION_STATE.Cancelled,
+      state: AUCTION_STATE.CANCELLED,
     },
   );
 

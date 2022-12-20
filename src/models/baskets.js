@@ -23,8 +23,8 @@ const basket = new mongoose.Schema({
   state: {
     type: String,
     enum: [
-      BASKET_STATES.CREATED,
-      BASKET_STATES.LISTED,
+      BASKET_STATES.OFF_SALE,
+      BASKET_STATES.ON_SALE,
       BASKET_STATES.DESTROYED,
     ],
     required: true,

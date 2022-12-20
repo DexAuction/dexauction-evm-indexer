@@ -7,12 +7,14 @@ const ASSET_HISTORY_EVENTS = {
   TRANSFER: 'transfer',
   CANCEL_LIST: 'cancel-list',
   BASKET_CREATE: 'basket-create',
+  BASKET_LIST: 'basket-list',
+  BASKET_CANCEL_LIST: 'basket-cancel-list',
   BASKET_DESTROY: 'basket-destroy',
 };
 
 const BASKET_STATES = {
-  CREATED: 'created',
-  LISTED: 'listed',
+  OFF_SALE: 'off-sale',
+  ON_SALE: 'on-sale',
   DESTROYED: 'destroyed',
 };
 
@@ -22,16 +24,16 @@ const AUCTION = {
 };
 
 const AUCTION_STATE = {
-  NotStarted: 'NOT-STARTED',
-  Ongoing: 'ONGOING',
-  SucceddfullyCompleted: 'SUCCESSFULLY-COMPLETED',
-  Cancelled: 'CANCELLED',
-  Expired: 'EXPIRED',
+  NOT_STARTED: 'NOT-STARTED',
+  ONGOING: 'ONGOING',
+  SUCCESSFULLY_COMPLETED: 'SUCCESSFULLY-COMPLETED',
+  CANCELLED: 'CANCELLED',
+  EXPIRED: 'EXPIRED',
 };
 
 const INVENTORY_TYPE = {
-  asset: 'asset',
-  basket: 'basket',
+  ASSET: 'asset',
+  BASKET: 'basket',
 };
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
