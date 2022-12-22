@@ -860,7 +860,7 @@ async function _createBasketAuction(
       inventoryId: getBasket._id,
     });
     await dbAuction.save();
-    getBasket.findOneAndUpdate({ basketState: BASKET_STATES.ON_SALE });
+    await getBasket.updateOne({ state: BASKET_STATES.ON_SALE });
 
     const seentx = new seenTransactionModel({
       transactionHash: eventLog.transactionHash,

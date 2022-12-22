@@ -1,12 +1,12 @@
 const axios = require('axios');
 const {
-  DEFAULT_ASSET_STATUS,
   ASSET_HISTORY_EVENTS,
   AUCTION,
   SUPPORTED_TOKEN_STANDARDS,
   SUPPORTED_TOKEN_STANDARDS_ENUM,
   BASKET_STATES,
   INVENTORY_TYPE,
+  ASSET_STATUS,
 } = require('../constants');
 const Web3 = require('web3');
 const config = require('../config');
@@ -36,7 +36,7 @@ async function createAssetHelper(
       metadataJSON: null,
       tokenId: assetTokenId,
       quantity: assetQuantity,
-      saleStatus: DEFAULT_ASSET_STATUS,
+      saleStatus: ASSET_STATUS.OFF_SALE,
       collectionId: dbCollection._id,
     };
 
@@ -233,6 +233,11 @@ async function listAssetHistoryHelper(eventLog, auctionId, auctionType) {
   // NFT Auction
   if (dbAuction.inventoryType === INVENTORY_TYPE.ASSET) {
     const dbAsset = await assetModel.findOne({ _id: dbAuction.inventoryId });
+
+    // Update Asset status to on-sale
+    await dbAsset.updateOne({ saleStatus: ASSET_STATUS.ON_SALE });
+
+    // Make List event entry in asset history
     await listAssetHistoryDbHelper(
       eventLog,
       dbAuction,
@@ -246,6 +251,13 @@ async function listAssetHistoryHelper(eventLog, auctionId, auctionType) {
     const dbBasket = await basketModel.findOne({ _id: dbAuction.inventoryId });
 
     for (let i = 0; i < dbBasket.assetIds.length; i++) {
+      // Update Asset status to on-sale
+      await assetModel.updateOne(
+        { _id: dbBasket.assetIds[i] },
+        { saleStatus: ASSET_STATUS.ON_SALE },
+      );
+
+      // Make Basket List event entry in asset history
       await basketListAssetHistoryDbHelper(
         eventLog,
         dbBasket,
@@ -330,6 +342,10 @@ async function cancelListAssetHistoryHelper(eventLog, auctionId, auctionType) {
   if (dbAuction.inventoryType === INVENTORY_TYPE.ASSET) {
     const dbAsset = await assetModel.findOne({ _id: dbAuction.inventoryId });
 
+    // Update Asset status to off-sale
+    await dbAsset.updateOne({ saleStatus: ASSET_STATUS.OFF_SALE });
+
+    // Make Cancel List event entry in asset history
     await cancelListAssetHistoryDbHelper(
       eventLog,
       dbAuction,
@@ -343,6 +359,13 @@ async function cancelListAssetHistoryHelper(eventLog, auctionId, auctionType) {
     const dbBasket = await basketModel.findOne({ _id: dbAuction.inventoryId });
 
     for (let i = 0; i < dbBasket.assetIds.length; i++) {
+      // Update Asset status to off-sale
+      await assetModel.updateOne(
+        { _id: dbBasket.assetIds[i] },
+        { saleStatus: ASSET_STATUS.OFF_SALE },
+      );
+
+      // Make Basket Cancel List event entry in asset history
       await basketCancelListAssetHistoryDbHelper(
         eventLog,
         dbBasket,
@@ -547,7 +570,6 @@ async function basketCreateAssetHistoryDbHelper(
     assetHistoryParams,
   );
 }
-
 
 async function basketListAssetHistoryDbHelper(
   eventLog,

@@ -1,6 +1,3 @@
-const DEFAULT_ASSET_STATUS = 'off-sale';
-const ON_SALE_ASSET_STATUS = 'on-sale';
-
 const ASSET_HISTORY_EVENTS = {
   MINT: 'mint',
   LIST: 'list',
@@ -10,6 +7,11 @@ const ASSET_HISTORY_EVENTS = {
   BASKET_LIST: 'basket-list',
   BASKET_CANCEL_LIST: 'basket-cancel-list',
   BASKET_DESTROY: 'basket-destroy',
+};
+
+const ASSET_STATUS = {
+  OFF_SALE: 'off-sale',
+  ON_SALE: 'on-sale',
 };
 
 const BASKET_STATES = {
@@ -50,9 +52,8 @@ const SUPPORTED_TOKEN_STANDARDS_ENUM = {
 };
 
 module.exports = {
-  DEFAULT_ASSET_STATUS,
-  ON_SALE_ASSET_STATUS,
   ASSET_HISTORY_EVENTS,
+  ASSET_STATUS,
   BASKET_STATES,
   AUCTION,
   AUCTION_STATE,

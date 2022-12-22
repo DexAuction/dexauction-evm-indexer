@@ -26,7 +26,7 @@ async function seedDbEntriesNFT() {
       lastSeenBlock: 0,
       abi: JSON.stringify(ERC721_NFT_CONTRACT_ABI),
     });
-    await decentralandContract.save();
+    await erc721Contract.save();
   }
 
   const erc1155ContractInstance = await nftContractModel.findOne({

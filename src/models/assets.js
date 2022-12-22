@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const { DEFAULT_ASSET_STATUS, ON_SALE_ASSET_STATUS } = require('../constants');
+const { ASSET_STATUS } = require('../constants');
 
 const asset = new mongoose.Schema({
   _id: {
@@ -32,7 +32,7 @@ const asset = new mongoose.Schema({
   },
   saleStatus: {
     type: String,
-    enum: [DEFAULT_ASSET_STATUS, ON_SALE_ASSET_STATUS],
+    enum: [ASSET_STATUS.OFF_SALE, ASSET_STATUS.ON_SALE],
     required: true,
   },
   royaltyPercentage: {
