@@ -3,8 +3,8 @@ const bodyParser = require('body-parser');
 const mongo = require('./db');
 const app = express();
 const { CONFIRMATION_COUNT } = require('./config');
-const last_seen_blocks = require('./models/last_seen_blocks');
-const nftContractModel = require('./models/NFT_contracts');
+const lastSeenBlocks = require('./models/last_seen_blocks');
+const nftContractModel = require('./models/nft_contracts');
 const { seedDbEntriesNFT, seedDbEntriesLastSeenBlock } = require('../seeder');
 // parse requests of content-type - application/json
 app.use(bodyParser.json());
@@ -48,7 +48,7 @@ async function initialize() {
   await seedDbEntriesLastSeenBlock();
   await seedDbEntriesNFT();
   const NFTcontracts = await nftContractModel.find();
-  const lastSeenBlockInstance = await last_seen_blocks.findOne();
+  const lastSeenBlockInstance = await lastSeenBlocks.findOne();
 
   await initScrapeNftContractEventLogs(NFTcontracts);
   await initScrapeCreateBasketEventLogs(lastSeenBlockInstance);

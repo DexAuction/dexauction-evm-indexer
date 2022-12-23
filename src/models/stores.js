@@ -1,35 +1,37 @@
 const mongoose = require('mongoose');
 
 const store = new mongoose.Schema({
-  storeId: {
+  _id: {
     type: Number,
   },
-  storeName: {
+  name: {
     type: String,
+    required: true,
   },
   network: {
     type: String,
     enum: ['ethererum', 'polygon', 'binance-smart-chain'],
+    required: true,
   },
-  storeURL: {
+  url: {
     type: String,
+    required: true,
   },
-  storeStatus: {
+  status: {
     type: String,
     enum: ['active', 'deactivated'],
+    required: true,
   },
-  assetCategories: {
+  categories: {
     type: [String],
-  },
-  auctions: {
-    type: [String],
-  },
-  email: {
-    type: String,
   },
   publishStatus: {
     type: String,
     enum: ['published', 'unpublished'],
+    required: true,
   },
 });
+
+store.set('timestamps', true);
+store.set('versionKey', false);
 module.exports = mongoose.model('stores', store);

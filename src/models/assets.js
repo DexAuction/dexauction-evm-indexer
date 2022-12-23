@@ -1,40 +1,25 @@
 const mongoose = require('mongoose');
-const { DEFAULT_ASSET_STATUS, ON_SALE_ASSET_STATUS } = require('../constants');
+const { ASSET_STATUS } = require('../constants');
 
 const asset = new mongoose.Schema({
-  assetId: {
+  _id: {
     type: Number,
   },
-  status: {
+  owner: {
     type: String,
-    enum: [DEFAULT_ASSET_STATUS, ON_SALE_ASSET_STATUS],
-  },
-  assetContractAddress: {
-    type: String,
-  },
-  assetTokenId: {
-    type: Number,
-  },
-  assetQuantity: {
-    type: Number,
+    required: true,
   },
   mintedBy: {
     type: String,
+    required: true,
   },
-  name: {
-    type: String,
+  tokenId: {
+    type: Number,
+    required: true,
   },
-  description: {
-    type: String,
-  },
-  image: {
-    type: String,
-  },
-  attributes: {
-    type: Object,
-  },
-  external_url: {
-    type: String,
+  quantity: {
+    type: Number,
+    required: true,
   },
   metadataURL: {
     type: String,
@@ -42,25 +27,22 @@ const asset = new mongoose.Schema({
   metadataJSON: {
     type: Object,
   },
-  owner: {
-    type: String,
+  categories: {
+    type: [String],
   },
-  background_image: {
+  saleStatus: {
     type: String,
+    enum: [ASSET_STATUS.OFF_SALE, ASSET_STATUS.ON_SALE],
+    required: true,
   },
-  background_color: {
-    type: String,
-  },
-  NFTCollection: {
-    type: String,
+  royaltyPercentage: {
+    type: Number,
   },
   collectionId: {
     type: Number,
-  },
-  fk_collectionId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'collections',
+    required: true,
   },
 });
 asset.set('timestamps', true);
+asset.set('versionKey', false);
 module.exports = mongoose.model('assets', asset);

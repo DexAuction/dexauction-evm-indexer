@@ -1,17 +1,14 @@
 const Web3 = require('web3');
 const config = require('../config');
 const web3 = new Web3(config.NETWORK_CONFIG.WS_NETWORK_URL);
-const seenTransactionModel = require('../models/seenTransaction');
-const NFTContractsModel = require('../models/NFT_contracts');
+const seenTransactionModel = require('../models/seen_transaction');
+const NFTContractsModel = require('../models/nft_contracts');
 const collectionModel = require('../models/collections');
 const {
   createAssetHelper,
   mintAssetHistoryHelper,
 } = require('../helper/utils');
-const {
-  DECENTRALAND_NFT_CONTRACT_ABI,
-  ERC1155_NFT_CONTRACT_ABI,
-} = require('../abi');
+const { ERC721_NFT_CONTRACT_ABI, ERC1155_NFT_CONTRACT_ABI } = require('../abi');
 const { ZERO_ADDRESS } = require('../constants');
 
 const NftTransferEventSubscription = async function () {
@@ -22,13 +19,12 @@ const NftTransferEventSubscription = async function () {
     'logs',
     {
       address: [
-        config.NETWORK_CONFIG.DECENTRALAND_NFT_CONTRACT_ADDRESS.toLowerCase(),
-        config.NETWORK_CONFIG.ENS_NFT_CONTRACT_ADDRESS.toLowerCase(),
+        config.NETWORK_CONFIG.MYNEERC721_NFT_CONTRACT_ADDRESS.toLowerCase(),
       ],
     },
     async function (err, result) {
       const nftContract = await NFTContractsModel.findOne({
-        tokenContract: result.address,
+        contractAddress: result.address,
       });
       if (
         !err &&
@@ -46,10 +42,10 @@ const NftTransferEventSubscription = async function () {
         }
 
         console.log(
-          `decoding ERC721 ${DECENTRALAND_NFT_CONTRACT_ABI[3]['name']} eventLogs in NFTEvents`,
+          `decoding ERC721 ${ERC721_NFT_CONTRACT_ABI[3]['name']} eventLogs in NFTEvents`,
         );
         const decodedData = web3.eth.abi.decodeLog(
-          DECENTRALAND_NFT_CONTRACT_ABI[3]['inputs'],
+          ERC721_NFT_CONTRACT_ABI[3]['inputs'],
           result.data,
           result.topics.slice(1),
         );
@@ -59,10 +55,10 @@ const NftTransferEventSubscription = async function () {
           // save in database
           const NFTContractInstance = new web3.eth.Contract(
             JSON.parse(nftContract.abi),
-            nftContract.tokenContract,
+            nftContract.contractAddress,
           );
           const dbCollection = await collectionModel.findOne({
-            contractAddress: nftContract.tokenContract,
+            contractAddress: nftContract.contractAddress,
           });
 
           await _createAsset(
@@ -71,7 +67,6 @@ const NftTransferEventSubscription = async function () {
             1,
             decodedData.to,
             decodedData.to,
-            nftContract,
             NFTContractInstance,
             dbCollection,
           );
@@ -88,11 +83,12 @@ const ERC1155NftTransferEventSubscription = async function () {
   await web3.eth.subscribe(
     'logs',
     {
-      address: config.NETWORK_CONFIG.ERC1155_NFT_CONTRACT_ADDRESS.toLowerCase(),
+      address:
+        config.NETWORK_CONFIG.MYNEERC1155_NFT_CONTRACT_ADDRESS.toLowerCase(),
     },
     async function (err, result) {
       const nftContract = await NFTContractsModel.findOne({
-        tokenContract: result.address,
+        contractAddress: result.address,
       });
       if (
         !err &&
@@ -124,10 +120,10 @@ const ERC1155NftTransferEventSubscription = async function () {
           // save in database
           const NFTContractInstance = new web3.eth.Contract(
             JSON.parse(nftContract.abi),
-            nftContract.tokenContract,
+            nftContract.contractAddress,
           );
           const dbCollection = await collectionModel.findOne({
-            contractAddress: nftContract.tokenContract,
+            contractAddress: nftContract.contractAddress,
           });
           await _createAsset(
             result,
@@ -135,7 +131,6 @@ const ERC1155NftTransferEventSubscription = async function () {
             decodedData.value,
             decodedData.to,
             decodedData.operator,
-            nftContract,
             NFTContractInstance,
             dbCollection,
           );
@@ -172,29 +167,29 @@ const scrapeNftContractEventLogs = async function () {
     for (let nftContract of nftContracts) {
       const NFTContractInstance = new web3.eth.Contract(
         JSON.parse(nftContract.abi),
-        nftContract.tokenContract,
+        nftContract.contractAddress,
       );
 
       const dbCollection = await collectionModel.findOne({
-        contractAddress: nftContract.tokenContract,
+        contractAddress: nftContract.contractAddress,
       });
 
-      const last_seen_block = nftContract.lastSeenBlock;
-      let from_Block = parseInt(last_seen_block) + 1 + '';
-      let to_Block;
+      const lastSeenBlock = nftContract.lastSeenBlock;
+      let fromBlock = parseInt(lastSeenBlock) + 1 + '';
+      let toBlock;
       const latestBlockNumber = await web3.eth.getBlockNumber();
       if (latestBlockNumber > config.CONFIRMATION_COUNT) {
-        to_Block = latestBlockNumber - config.CONFIRMATION_COUNT + '';
+        toBlock = latestBlockNumber - config.CONFIRMATION_COUNT + '';
       } else {
-        to_Block = from_Block;
+        toBlock = fromBlock;
       }
 
-      if (from_Block <= to_Block) {
+      if (fromBlock <= toBlock) {
         const allEventLogs = await NFTContractInstance.getPastEvents(
           'allEvents',
           {
-            fromBlock: from_Block,
-            toBlock: to_Block,
+            fromBlock: fromBlock,
+            toBlock: toBlock,
           },
         );
         console.log('allEventLogs ', allEventLogs);
@@ -219,7 +214,6 @@ const scrapeNftContractEventLogs = async function () {
                     1,
                     element.returnValues.to,
                     element.returnValues.to,
-                    nftContract,
                     NFTContractInstance,
                     dbCollection,
                   ),
@@ -236,7 +230,6 @@ const scrapeNftContractEventLogs = async function () {
                     element.returnValues.value,
                     element.returnValues.to,
                     element.returnValues.operator,
-                    nftContract,
                     NFTContractInstance,
                     dbCollection,
                   ),
@@ -249,9 +242,9 @@ const scrapeNftContractEventLogs = async function () {
           }
         }
         const resp = await NFTContractsModel.findOneAndUpdate(
-          { tokenContract: nftContract.tokenContract },
+          { contractAddress: nftContract.contractAddress },
           {
-            lastSeenBlock: to_Block,
+            lastSeenBlock: toBlock,
           },
           { new: true },
         );
@@ -275,27 +268,27 @@ const initScrapeNftContractEventLogs = async function (nftContracts) {
     for (let nftContract of nftContracts) {
       const NFTContractInstance = new web3.eth.Contract(
         JSON.parse(nftContract.abi),
-        nftContract.tokenContract,
+        nftContract.contractAddress,
       );
       const dbCollection = await collectionModel.findOne({
-        contractAddress: nftContract.tokenContract,
+        contractAddress: nftContract.contractAddress,
       });
-      const last_seen_block = nftContract.lastSeenBlock;
-      let from_Block = parseInt(last_seen_block) + 1 + '';
-      let to_Block;
+      const lastSeenBlock = nftContract.lastSeenBlock;
+      let fromBlock = parseInt(lastSeenBlock) + 1 + '';
+      let toBlock;
       const latestBlockNumber = await web3.eth.getBlockNumber();
       if (latestBlockNumber > config.CONFIRMATION_COUNT) {
-        to_Block = latestBlockNumber - config.CONFIRMATION_COUNT + '';
+        toBlock = latestBlockNumber - config.CONFIRMATION_COUNT + '';
       } else {
-        to_Block = from_Block;
+        toBlock = fromBlock;
       }
 
-      if (from_Block <= to_Block) {
+      if (fromBlock <= toBlock) {
         const allEventLogs = await NFTContractInstance.getPastEvents(
           'allEvents',
           {
-            fromBlock: from_Block,
-            toBlock: to_Block,
+            fromBlock: fromBlock,
+            toBlock: toBlock,
           },
         );
         console.log('Init allEventLogs ', allEventLogs);
@@ -318,7 +311,6 @@ const initScrapeNftContractEventLogs = async function (nftContracts) {
                   1,
                   element.returnValues.to,
                   element.returnValues.to,
-                  nftContract,
                   NFTContractInstance,
                   dbCollection,
                 );
@@ -333,7 +325,6 @@ const initScrapeNftContractEventLogs = async function (nftContracts) {
                   element.returnValues.value,
                   element.returnValues.to,
                   element.returnValues.operator,
-                  nftContract,
                   NFTContractInstance,
                   dbCollection,
                 );
@@ -345,9 +336,9 @@ const initScrapeNftContractEventLogs = async function (nftContracts) {
           }
         }
         const resp = await NFTContractsModel.findOneAndUpdate(
-          { tokenContract: nftContract.tokenContract },
+          { contractAddress: nftContract.contractAddress },
           {
-            lastSeenBlock: to_Block,
+            lastSeenBlock: toBlock,
           },
           { new: true },
         );
@@ -366,21 +357,19 @@ async function _createAsset(
   quantity,
   assetOwner,
   assetMintedBy,
-  NFTContract,
   NFTContractInstance,
   dbCollection,
 ) {
-  const assetId = await createAssetHelper(
+  const dbAsset = await createAssetHelper(
     tokenId,
     quantity,
     assetOwner,
     assetMintedBy,
-    NFTContract,
     NFTContractInstance,
     dbCollection,
   );
 
-  await mintAssetHistoryHelper(eventLog, assetId, quantity);
+  await mintAssetHistoryHelper(eventLog, dbAsset, quantity);
 
   const seentx = new seenTransactionModel({
     transactionHash: eventLog.transactionHash,

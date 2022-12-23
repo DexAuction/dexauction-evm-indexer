@@ -1,7 +1,7 @@
 const Web3 = require('web3');
 const config = require('../config');
 const web3 = new Web3(config.NETWORK_CONFIG.WS_NETWORK_URL);
-const seenTransactionModel = require('../models/seenTransaction');
+const seenTransactionModel = require('../models/seen_transaction');
 const lastSeenBlocksModel = require('../models/last_seen_blocks');
 const {
   createBasketHelper,
@@ -165,18 +165,18 @@ const scrapeCreateBasketEventLogs = async function () {
 
     const lastSeenBlock = lastSeenBlockRes.blockNumberProxy;
 
-    let from_Block = parseInt(lastSeenBlock) + 1 + '';
-    let to_Block;
+    let fromBlock = parseInt(lastSeenBlock) + 1 + '';
+    let toBlock;
     const latestBlockNumber = await web3.eth.getBlockNumber();
     if (latestBlockNumber > config.CONFIRMATION_COUNT) {
-      to_Block = latestBlockNumber - config.CONFIRMATION_COUNT + '';
+      toBlock = latestBlockNumber - config.CONFIRMATION_COUNT + '';
     } else {
-      to_Block = from_Block;
+      toBlock = fromBlock;
     }
-    if (from_Block <= to_Block) {
+    if (fromBlock <= toBlock) {
       const allEventLogs = await ProxyContract.getPastEvents('allEvents', {
-        fromBlock: from_Block,
-        toBlock: to_Block,
+        fromBlock: fromBlock,
+        toBlock: toBlock,
       });
       console.log('allEventLogs ', allEventLogs);
       for (const element of allEventLogs) {
@@ -234,7 +234,7 @@ const scrapeCreateBasketEventLogs = async function () {
       }
       const resp = await lastSeenBlocksModel.findOneAndUpdate(
         {},
-        { blockNumberProxy: to_Block },
+        { blockNumberProxy: toBlock },
         { new: true },
       );
       await resp.save();
@@ -257,19 +257,19 @@ const initScrapeCreateBasketEventLogs = async function (lastSeenBlockRes) {
 
     const lastSeenBlock = lastSeenBlockRes.blockNumberProxy;
 
-    let from_Block = parseInt(lastSeenBlock) + 1 + '';
-    let to_Block;
+    let fromBlock = parseInt(lastSeenBlock) + 1 + '';
+    let toBlock;
     const latestBlockNumber = await web3.eth.getBlockNumber();
     if (latestBlockNumber > config.CONFIRMATION_COUNT) {
-      to_Block = latestBlockNumber - config.CONFIRMATION_COUNT + '';
+      toBlock = latestBlockNumber - config.CONFIRMATION_COUNT + '';
     } else {
-      to_Block = from_Block;
+      toBlock = fromBlock;
     }
 
-    if (from_Block <= to_Block) {
+    if (fromBlock <= toBlock) {
       const allEventLogs = await ProxyContract.getPastEvents('allEvents', {
-        fromBlock: from_Block,
-        toBlock: to_Block,
+        fromBlock: fromBlock,
+        toBlock: toBlock,
       });
       console.log('Init allEventLogs ', allEventLogs);
       for (const element of allEventLogs) {
@@ -325,7 +325,7 @@ const initScrapeCreateBasketEventLogs = async function (lastSeenBlockRes) {
       }
       const resp = await lastSeenBlocksModel.findOneAndUpdate(
         {},
-        { blockNumberProxy: to_Block },
+        { blockNumberProxy: toBlock },
         { new: true },
       );
       await resp.save();
@@ -346,7 +346,7 @@ async function _createBasketHelper(
   basketOwner,
   tokenStandards,
 ) {
-  await createBasketHelper(
+  const dbBasket = await createBasketHelper(
     basketId,
     nftContracts,
     tokenIds,
@@ -355,7 +355,7 @@ async function _createBasketHelper(
     tokenStandards,
   );
 
-  await basketCreateAssetHistoryHelper(eventLog, basketId);
+  await basketCreateAssetHistoryHelper(eventLog, dbBasket);
 
   const seentx = new seenTransactionModel({
     transactionHash: eventLog.transactionHash,
