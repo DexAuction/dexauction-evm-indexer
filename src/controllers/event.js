@@ -2,7 +2,7 @@ const Web3 = require('web3');
 const config = require('../config');
 const web3 = new Web3(config.NETWORK_CONFIG.ALCHEMY_ENDPOINT_POLY);
 const axios = require('axios');
-const { ZERO_ADDRESS } = require('../constants') ;
+const { ZERO_ADDRESS } = require('../constants');
 class EventController {
   async eventExtract(req, res) {
     //request: Contract address, network, start block, to block, event name
@@ -11,13 +11,16 @@ class EventController {
     const abi = JSON.parse(response.data.result);
     const contractInstance = new web3.eth.Contract(
       abi,
-      req.query.contractAddress
+      req.query.contractAddress,
     );
-    const allEventLogs = await contractInstance.getPastEvents(req.query.eventName, {
-      fromBlock: req.query.startBlock,
-      toBlock: req.query.endBlock,
-    });
-    let allEventLogsFilter=[];
+    const allEventLogs = await contractInstance.getPastEvents(
+      req.query.eventName,
+      {
+        fromBlock: req.query.startBlock,
+        toBlock: req.query.endBlock,
+      },
+    );
+    let allEventLogsFilter = [];
     for (let element of allEventLogs) {
       if (element.returnValues.from == ZERO_ADDRESS) {
         allEventLogsFilter.push(element);
