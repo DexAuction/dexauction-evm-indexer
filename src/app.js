@@ -10,6 +10,7 @@ const { seedDbEntriesNFT, seedDbEntriesLastSeenBlock } = require('../seeder');
 app.use(bodyParser.json());
 // parse requests of content-type - application/x-www-form-urlencoded
 app.use(bodyParser.urlencoded({ extended: true }));
+app.use('/api/event', require('./api/event'));
 // set port, listen for requests, start cron
 const PORT = process.env.PORT || 3000;
 const { getHealth } = require('./health');

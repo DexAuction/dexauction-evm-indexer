@@ -7,6 +7,7 @@ const {
   BASKET_STATES,
   INVENTORY_TYPE,
   ASSET_STATUS,
+  SUPPORTED_BLOCKCHAIN_NETWORK,
 } = require('../constants');
 const Web3 = require('web3');
 const config = require('../config');
@@ -746,7 +747,13 @@ async function assetHistoryDbHelper(
     `Asset(assetId: ${assetId})###`,
   );
 }
-
+async function getApiKey(network) {
+  let apiKey;
+  if (network === SUPPORTED_BLOCKCHAIN_NETWORK.POLYGON) {
+    apiKey = config.NETWORK_CONFIG.POLYSCAN_API_KEY;
+  }
+  return apiKey;
+}
 module.exports = {
   createAssetHelper,
   createBasketHelper,
@@ -758,4 +765,5 @@ module.exports = {
   basketCreateAssetHistoryHelper,
   basketDestroyAssetHistoryHelper,
   changeOwnership,
+  getApiKey,
 };
