@@ -19,6 +19,7 @@ const {
   transferAssetHistoryHelper,
   cancelListAssetHistoryHelper,
   changeOwnership,
+  changeOrderStatus,
 } = require('../helper/utils');
 
 const DutchAuctionContract = new web3.eth.Contract(
@@ -805,6 +806,7 @@ async function _acceptPrice(eventLog, auctionId, winningBid, auctionWinner) {
 
   await changeOwnership(auctionId, auctionWinner);
 
+  await changeOrderStatus(auctionId);
   //make entry in asset history
   await transferAssetHistoryHelper(
     eventLog,
@@ -830,7 +832,7 @@ async function _cancelAuction(eventLog, auctionId) {
       state: AUCTION_STATE.CANCELLED,
     },
   );
-
+  await changeOrderStatus(auctionId);
   //make entry in asset history
   await cancelListAssetHistoryHelper(eventLog, auctionId, AUCTION.DUTCH);
 

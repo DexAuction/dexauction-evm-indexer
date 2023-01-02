@@ -19,6 +19,7 @@ const {
   changeOwnership,
   transferAssetHistoryHelper,
   cancelListAssetHistoryHelper,
+  changeOrderStatus,
 } = require('../helper/utils');
 
 const EnglishAuctionContract = new web3.eth.Contract(
@@ -951,6 +952,9 @@ async function _auctionComplete(eventLog, auctionId, winningBid, winner) {
   //change owner in asset schema
   await changeOwnership(auctionId, winner);
 
+  //change order status
+  await changeOrderStatus(auctionId);
+
   //make entry in asset history
   await transferAssetHistoryHelper(eventLog, auctionId, winningBid, winner);
 
@@ -971,6 +975,8 @@ async function _cancelAuction(eventLog, auctionId) {
       $set: { 'englishAuctionAttribute.winningBid': 0 },
     },
   );
+  //change order status
+  await changeOrderStatus(auctionId);
 
   //make entry in asset history
   await cancelListAssetHistoryHelper(eventLog, auctionId, AUCTION.ENGLISH);
