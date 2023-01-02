@@ -51,6 +51,12 @@ const SUPPORTED_TOKEN_STANDARDS_ENUM = {
   ERC1155: '2',
 };
 
+const ORDER_STATUS = {
+  ACTIVE: 'active',
+  COMPLETED: 'completed',
+  CANCELLED: 'cancelled',
+};
+
 module.exports = {
   ASSET_HISTORY_EVENTS,
   ASSET_STATUS,
@@ -61,4 +67,5 @@ module.exports = {
   ZERO_ADDRESS,
   SUPPORTED_TOKEN_STANDARDS,
   SUPPORTED_TOKEN_STANDARDS_ENUM,
+  ORDER_STATUS,
 };

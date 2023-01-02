@@ -2,11 +2,13 @@ const axios = require('axios');
 const {
   ASSET_HISTORY_EVENTS,
   AUCTION,
+  AUCTION_STATE,
   SUPPORTED_TOKEN_STANDARDS,
   SUPPORTED_TOKEN_STANDARDS_ENUM,
   BASKET_STATES,
   INVENTORY_TYPE,
   ASSET_STATUS,
+  ORDER_STATUS,
 } = require('../constants');
 const Web3 = require('web3');
 const config = require('../config');
@@ -17,6 +19,7 @@ const auctionModel = require('../models/auctions');
 const collectionModel = require('../models/collections');
 const assetModel = require('../models/assets');
 const NFTContractsModel = require('../models/nft_contracts');
+const orderModel = require('../models/orders');
 
 async function createAssetHelper(
   assetTokenId,
@@ -747,6 +750,39 @@ async function assetHistoryDbHelper(
   );
 }
 
+async function changeOrderStatus(auctionId) {
+  const dbAuction = await auctionModel.findOne({ _id: auctionId });
+  let update;
+  switch (dbAuction.state) {
+    case AUCTION_STATE.SUCCESSFULLY_COMPLETED: {
+      update = { status: ORDER_STATUS.COMPLETED };
+      break;
+    }
+    case AUCTION_STATE.CANCELLED: {
+      update = { status: ORDER_STATUS.CANCELLED };
+      break;
+    }
+    case AUCTION_STATE.EXPIRED: {
+      update = { status: ORDER_STATUS.CANCELLED };
+      break;
+    }
+    case AUCTION_STATE.NOT_STARTED: {
+      update = { status: ORDER_STATUS.ACTIVE };
+      break;
+    }
+    case AUCTION_STATE.ONGOING: {
+      update = { status: ORDER_STATUS.ACTIVE };
+      break;
+    }
+    default:
+      break;
+  }
+  const filter = { auctionId: auctionId };
+
+  await orderModel.findOneAndUpdate(filter, update, {
+    new: true,
+  });
+}
 module.exports = {
   createAssetHelper,
   createBasketHelper,
@@ -758,4 +794,5 @@ module.exports = {
   basketCreateAssetHistoryHelper,
   basketDestroyAssetHistoryHelper,
   changeOwnership,
+  changeOrderStatus,
 };
